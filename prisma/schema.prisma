@@ -115,13 +115,16 @@ model EmployeeEnrichment {
   id              String   @id @default(uuid())
   employeeId      String
   provider        String // instagram | tiktok
+  source          String   @default("ensembledata") // ensembledata | ensembledata+socialcrawl
   query           String // nombre usado para buscar
   matchedUsername String?
   matchedFullName String?
   bio             String?
   followers       Int?
+  verified        Boolean?
+  engagementRate  Float?
   profileUrl      String?
-  raw             String? // JSON crudo de la respuesta de EnsembleData
+  raw             String? // JSON crudo de la(s) respuesta(s)
   fetchedAt       DateTime @default(now())
 
   employee Employee @relation(fields: [employeeId], references: [id])

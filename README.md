@@ -51,7 +51,7 @@ esa integración no está configurada.
 | **Login** | [app/colaboradores/login/page.tsx](app/colaboradores/login/page.tsx) | Gate simulado (cualquier cédula/contraseña) — no valida credenciales reales, solo setea una cookie `h30x_staff` |
 | **Búsqueda por cédula** | [app/colaboradores/page.tsx](app/colaboradores/page.tsx), [components/SearchByCedula.tsx](components/SearchByCedula.tsx) | Buscador + listado completo de colaboradores sembrados |
 | **Perfil del colaborador** | [app/colaboradores/[cedula]/page.tsx](app/colaboradores/%5Bcedula%5D/page.tsx) | Datos del empleado (cédula, nombre, empresa, antigüedad, rol, salario, correo, edad, hijos, género) + actividad en `colsubsidio.com/creditos` si se detectó (timeline de eventos + fuente de la visita: orgánico, anuncio de Facebook/Instagram, etc.) |
-| **Enriquecimiento de redes (real)** | [lib/ensembledata.ts](lib/ensembledata.ts), [app/api/colaboradores/enriquecer/route.ts](app/api/colaboradores/enriquecer/route.ts), [components/EnrichmentPanel.tsx](components/EnrichmentPanel.tsx) | Llama de verdad a la API de **EnsembleData** (Instagram `search` + TikTok `userSearch`) con el nombre del colaborador. Como los colaboradores son sintéticos, cualquier resultado es una **coincidencia por nombre, no una identidad verificada** — así se etiqueta explícitamente en la UI |
+| **Enriquecimiento de redes (real)** | [lib/ensembledata.ts](lib/ensembledata.ts), [lib/socialcrawl.ts](lib/socialcrawl.ts), [app/api/colaboradores/enriquecer/route.ts](app/api/colaboradores/enriquecer/route.ts), [components/EnrichmentPanel.tsx](components/EnrichmentPanel.tsx) | Combina dos APIs reales: **EnsembleData** busca por nombre (Instagram `search` + TikTok `userSearch`) y descubre un username candidato; **SocialCrawl** (`/v1/{tiktok,instagram}/profile`) trae un perfil más completo (bio, verificado, seguidores, engagement) para ese mismo username. Como los colaboradores son sintéticos, cualquier resultado es una **coincidencia por nombre, no una identidad verificada** — así se etiqueta explícitamente en la UI |
 | **Probabilidad por producto** | [lib/product-scoring.ts](lib/product-scoring.ts), [app/api/colaboradores/recalcular/route.ts](app/api/colaboradores/recalcular/route.ts), [components/ProductScorePanel.tsx](components/ProductScorePanel.tsx) | Reglas determinísticas (sin LLM) que estiman % de interés en 5 productos: cupo de crédito, consumo, vivienda, Línea Mujer, educativo — a partir de datos del empleado + su actividad en el sitio |
 | **Datos sintéticos de empleados** | [scripts/seed.ts](scripts/seed.ts) | Genera ~50 colaboradores ficticios (cédula, nombre, empresa afiliada, salario, edad, hijos, género); ~35% se vinculan a un usuario ya sembrado del sitio público para simular "este colaborador sí visitó creditos" |
 | **Schema de datos** | [prisma/schema.prisma](prisma/schema.prisma) | SQLite vía Prisma — cero configuración de infraestructura |
@@ -59,8 +59,8 @@ esa integración no está configurada.
 ## Qué es real vs. simulado
 
 - **Real:** el cálculo de la cuota (amortización francesa), el tracking de eventos, el motor
-  de scoring, la capa conversacional del chatbot (Claude), la llamada a la API de EnsembleData
-  en el portal de colaboradores, y el motor de probabilidad por producto.
+  de scoring, la capa conversacional del chatbot (Claude), las llamadas a EnsembleData y
+  SocialCrawl en el portal de colaboradores, y el motor de probabilidad por producto.
 - **Simulado / sintético:** todos los usuarios, empleados, cédulas, salarios, correos y
   eventos (generados por `npm run seed`) — no representan personas reales. La marca
   Colsubsidio es real (demo interno autorizado), pero **ningún dato de este sitio corresponde
@@ -90,6 +90,7 @@ Ver [.env.example](.env.example):
 - `ANTHROPIC_API_KEY` — clave de la API de Anthropic (https://console.anthropic.com/), usada solo por `/api/chat`.
 - `ANTHROPIC_MODEL` — modelo de Claude para la capa conversacional (default: `claude-opus-4-8`).
 - `ENSEMBLEDATA_API_TOKEN` — token de https://ensembledata.com, usado por el enriquecimiento de redes del portal de colaboradores.
+- `SOCIALCRAWL_API_KEY` — API key de https://www.socialcrawl.dev, usada para completar el perfil (bio, verificado, seguidores, engagement) del username encontrado por EnsembleData.
 - `DATABASE_URL` — conexión SQLite para Prisma (`file:./prisma/dev.db`).
 
 ## Notas
@@ -99,4 +100,6 @@ Ver [.env.example](.env.example):
   aceptable para un demo de hackathon, pero no usar este setup tal cual en producción.
 - Ni el dashboard interno ni el portal de colaboradores tienen autenticación real —
   es intencional para la demo.
-- El enriquecimiento de redes consume la API real de EnsembleData (cuenta contra tu cupo/plan).
+- El enriquecimiento de redes consume las APIs reales de EnsembleData y SocialCrawl (cuentan
+  contra tu cupo/plan de cada una; SocialCrawl factura por llamada — cada búsqueda gasta
+  créditos en ambas plataformas).

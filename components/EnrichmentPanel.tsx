@@ -6,10 +6,13 @@ import { useRouter } from "next/navigation";
 interface EnrichmentRow {
   id: string;
   provider: string;
+  source: string;
   matchedUsername: string | null;
   matchedFullName: string | null;
   bio: string | null;
   followers: number | null;
+  verified: boolean | null;
+  engagementRate: number | null;
   profileUrl: string | null;
   fetchedAt: string | Date;
 }
@@ -61,7 +64,8 @@ export default function EnrichmentPanel({
       </div>
 
       <p className="mt-3 rounded-lg bg-yellow-50 p-3 text-xs text-yellow-800">
-        ⚠️ Estos resultados son coincidencias por nombre en redes públicas (vía EnsembleData),{" "}
+        ⚠️ Estos resultados son coincidencias por nombre en redes públicas (vía EnsembleData,
+        completadas con el perfil público de SocialCrawl cuando hay match),{" "}
         <strong>no son una identidad verificada</strong>. Pueden corresponder a otra persona con el
         mismo nombre.
       </p>
@@ -82,13 +86,23 @@ export default function EnrichmentPanel({
                   <p className="font-semibold text-gray-900">
                     {e.matchedFullName ?? e.matchedUsername}{" "}
                     <span className="font-normal text-gray-400">@{e.matchedUsername}</span>
+                    {e.verified && (
+                      <span className="ml-1 text-brand-600" title="Cuenta verificada">
+                        ✔
+                      </span>
+                    )}
                   </p>
                   {e.bio && <p className="mt-1 text-gray-600">{e.bio}</p>}
                   {e.followers !== null && (
                     <p className="mt-1 text-gray-500">
                       {e.followers.toLocaleString("es-CO")} seguidores
+                      {e.engagementRate !== null &&
+                        ` · ${(e.engagementRate * 100).toFixed(1)}% engagement`}
                     </p>
                   )}
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    Fuente: {e.source === "ensembledata+socialcrawl" ? "EnsembleData + SocialCrawl" : "EnsembleData"}
+                  </p>
                   {e.profileUrl && (
                     <a
                       href={e.profileUrl}
