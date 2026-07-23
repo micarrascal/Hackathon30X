@@ -6,6 +6,10 @@ import { logEvent } from "@/lib/track-server";
 const anthropic = new Anthropic();
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-4-8";
 
+// El loop de tool-use puede hacer varias llamadas a Claude en un mismo request;
+// se extiende el timeout default de la funcion serverless en Vercel.
+export const maxDuration = 60;
+
 const SYSTEM_PROMPT = `Eres el asistente virtual de simulacion de creditos de Colsubsidio (este es un demo de hackathon interno: la marca es real, pero los datos de usuarios y empleados son sinteticos).
 
 Tu unico objetivo es ayudar al usuario a simular un credito de forma conversacional:

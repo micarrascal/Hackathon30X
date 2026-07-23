@@ -11,22 +11,29 @@ producción.**
 
 ## Cómo correrlo
 
-Requisitos: Node.js 18+.
+Requisitos: Node.js 18+ y una base **Postgres** (Vercel Postgres o Neon, ambos con free
+tier — ver [Desplegar en Vercel](#desplegar-en-vercel) para cómo conseguir una en 2 minutos).
+El proyecto dejó de usar SQLite porque no sobrevive en un entorno serverless como Vercel
+(filesystem efímero) — ver la nota al final de esta sección.
 
 ```bash
-npm install          # instala dependencias y corre `prisma generate`
-cp .env.example .env  # completá ANTHROPIC_API_KEY y ENSEMBLEDATA_API_TOKEN (ver mas abajo)
-npx prisma migrate dev --name init   # crea prisma/dev.db con el schema (solo la primera vez)
+npm install           # instala dependencias y corre `prisma generate`
+cp .env.example .env  # completá ANTHROPIC_API_KEY, ENSEMBLEDATA_API_TOKEN, SOCIALCRAWL_API_KEY
+                       # y las dos variables de Postgres (ver mas abajo)
+npx prisma migrate dev --name init   # crea las tablas en tu Postgres (solo la primera vez)
 npm run seed           # genera ~50 usuarios + ~50 colaboradores sinteticos
 npm run dev             # http://localhost:3000 (redirige a /creditos)
 ```
 
-No hay pasos manuales adicionales más allá de eso. Si `prisma/dev.db` ya existe (por
-ejemplo, en un clon del repo), `npx prisma migrate dev` la deja al día sin pedir nada más.
+Sin `ANTHROPIC_API_KEY`, `ENSEMBLEDATA_API_TOKEN` o `SOCIALCRAWL_API_KEY`, el resto del sitio
+funciona igual — el chatbot y el botón "Buscar en redes" del portal de colaboradores
+simplemente avisan que esa integración no está configurada.
 
-Sin `ANTHROPIC_API_KEY` o sin `ENSEMBLEDATA_API_TOKEN`, el resto del sitio funciona igual —
-el chatbot y el botón "Buscar en redes" del portal de colaboradores simplemente avisan que
-esa integración no está configurada.
+> **Por qué Postgres y no SQLite:** las funciones serverless de Vercel corren en un
+> filesystem efímero — un archivo `.db` local se resetea (o queda de solo lectura) en cada
+> cold start, así que cualquier escritura (eventos, leads, colaboradores) se perdería. Para
+> correr local sin depender de Vercel, la forma más simple es crear una base Postgres gratis
+> en [neon.tech](https://neon.tech) y pegar su connection string en `.env` (ver abajo).
 
 ## Dónde está cada pieza
 
@@ -91,10 +98,44 @@ Ver [.env.example](.env.example):
 - `ANTHROPIC_MODEL` — modelo de Claude para la capa conversacional (default: `claude-opus-4-8`).
 - `ENSEMBLEDATA_API_TOKEN` — token de https://ensembledata.com, usado por el enriquecimiento de redes del portal de colaboradores.
 - `SOCIALCRAWL_API_KEY` — API key de https://www.socialcrawl.dev, usada para completar el perfil (bio, verificado, seguidores, engagement) del username encontrado por EnsembleData.
-- `DATABASE_URL` — conexión SQLite para Prisma (`file:./prisma/dev.db`).
+- `POSTGRES_PRISMA_URL` — connection string **pooled** (vía pgbouncer) que usa la app en runtime. Es el nombre exacto que Vercel inyecta al conectar el storage Postgres — no hace falta renombrarla.
+- `POSTGRES_URL_NON_POOLING` — connection string **directa** (sin pooler), usada solo por `prisma migrate` para aplicar el schema. También la inyecta Vercel automáticamente.
+
+## Desplegar en Vercel
+
+1. **Crear la base de datos.** En el proyecto de Vercel: `Storage` → `Create Database` →
+   `Postgres` → `Connect to Project`. Esto inyecta `POSTGRES_PRISMA_URL` y
+   `POSTGRES_URL_NON_POOLING` automáticamente — no hay que tocarlas a mano.
+2. **Agregar el resto de las variables** en `Project Settings` → `Environment Variables`:
+   `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `ENSEMBLEDATA_API_TOKEN`, `SOCIALCRAWL_API_KEY`.
+   (El `.env` local nunca se sube al repo — por diseño — así que este paso es manual.)
+3. **Traer las variables reales a tu máquina** (para generar la migración inicial y sembrar
+   datos de prueba):
+   ```bash
+   npx vercel link          # vincula esta carpeta con el proyecto de Vercel
+   npx vercel env pull .env # trae POSTGRES_* y el resto de las variables reales
+   ```
+4. **Generar y aplicar la migración inicial contra la base real** (una sola vez):
+   ```bash
+   npx prisma migrate dev --name init
+   npm run seed
+   ```
+   Commiteá la carpeta `prisma/migrations/` generada — a partir de acá, cada deploy en
+   Vercel corre `prisma migrate deploy` automáticamente (ver `vercel-build` en
+   `package.json`), así que no hace falta repetir este paso a mano en cada push.
+5. **Deploy.** Push a `main` (o `vercel --prod`) y listo.
+
+Notas de la config de Vercel ya resueltas en el código: `vercel-build` encadena
+`prisma generate && prisma migrate deploy && next build`; las rutas `/api/chat` y
+`/api/colaboradores/enriquecer` declaran `export const maxDuration = 60` porque encadenan
+varias llamadas externas (Claude, EnsembleData, SocialCrawl) y podrían superar el timeout
+default de una función serverless.
 
 ## Notas
 
+- El proyecto pasó de SQLite a Postgres específicamente para poder desplegarse en Vercel
+  (ver arriba). Esto significa que **ya no hay modo "cero infraestructura"** para correr
+  local — hace falta una connection string real de Postgres incluso para `npm run dev`.
 - El proyecto usa Next.js 14.2.x (última versión de la rama 14, pedida explícitamente
   para este demo). Hay CVEs conocidos de Next.js sin parche dentro de la rama 14 —
   aceptable para un demo de hackathon, pero no usar este setup tal cual en producción.

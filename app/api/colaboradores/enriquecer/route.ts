@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { buscarEnRedes } from "@/lib/ensembledata";
 import { obtenerPerfilInstagram, obtenerPerfilTiktok } from "@/lib/socialcrawl";
 
+// Encadena llamadas a EnsembleData + SocialCrawl; se extiende el timeout default
+// de la funcion serverless en Vercel para dar margen a las APIs externas.
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const { cedula } = await req.json();
 

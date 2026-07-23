@@ -24,9 +24,14 @@ export default async function ColaboradoresPage() {
             Buscá por cédula para ver el perfil enriquecido de un colaborador.
           </p>
         </div>
-        <Link href="/creditos" className="text-sm text-brand-600 hover:text-brand-800">
-          ← Ir al sitio público
-        </Link>
+        <div className="flex gap-4 text-sm">
+          <Link href="/dashboard" className="text-brand-600 hover:text-brand-800">
+            Panel de leads →
+          </Link>
+          <Link href="/creditos" className="text-brand-600 hover:text-brand-800">
+            ← Ir al sitio público
+          </Link>
+        </div>
       </div>
 
       <SearchByCedula />

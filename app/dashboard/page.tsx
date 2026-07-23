@@ -30,9 +30,14 @@ export default async function DashboardPage() {
             Usuarios ordenados por intent score. Demo interno — sin autenticación real.
           </p>
         </div>
-        <Link href="/creditos" className="text-sm text-brand-600 hover:text-brand-800">
-          ← Ir al sitio público
-        </Link>
+        <div className="flex gap-4 text-sm">
+          <Link href="/colaboradores" className="text-brand-600 hover:text-brand-800">
+            Portal colaboradores →
+          </Link>
+          <Link href="/creditos" className="text-brand-600 hover:text-brand-800">
+            ← Ir al sitio público
+          </Link>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">

@@ -74,10 +74,10 @@ export default function CreditosPage() {
           <span className="text-xl font-bold text-brand-700">Colsubsidio</span>
           <nav className="flex gap-4 text-sm text-gray-600">
             <Link href="/colaboradores" className="hover:text-brand-700">
-              Portal colaboradores
+              Portal colaboradores (buscar por cédula)
             </Link>
             <Link href="/dashboard" className="hover:text-brand-700">
-              Panel interno
+              Panel de leads (visitantes)
             </Link>
           </nav>
         </div>
