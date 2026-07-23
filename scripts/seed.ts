@@ -1,0 +1,218 @@
+import { randomUUID } from "crypto";
+import { prisma } from "../lib/prisma";
+import { recalculateScoreForUser } from "../lib/scoring";
+
+const SCORING_RULES = [
+  { eventType: "page_view", points: 5, description: "Vio una página del sitio" },
+  { eventType: "search", points: 10, description: "Buscó algo dentro del sitio" },
+  { eventType: "simulator_use", points: 15, description: "Usó el simulador tradicional" },
+  { eventType: "form_abandon", points: 20, description: "Abandonó un formulario a medias" },
+  { eventType: "chatbot_simulacion", points: 40, description: "Completó una simulación por chatbot" },
+  { eventType: "form_complete", points: 30, description: "Completó un formulario" },
+];
+
+const FIRST_NAMES = [
+  "Valentina", "Santiago", "Camila", "Mateo", "Isabella", "Sebastian", "Sofia", "Nicolas",
+  "Mariana", "Andres", "Daniela", "Julian", "Laura", "David", "Paula", "Alejandro",
+  "Natalia", "Diego", "Carolina", "Felipe",
+];
+const LAST_NAMES = [
+  "Gomez", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Garcia", "Perez", "Sanchez",
+  "Ramirez", "Torres", "Diaz", "Vargas", "Castro", "Ortiz", "Rojas",
+];
+const DOMAINS = ["gmail.com", "hotmail.com", "outlook.com", "yahoo.com"];
+const DEVICE_TYPES = ["desktop", "mobile", "tablet"];
+const REFERRERS = [
+  null,
+  "https://www.google.com/",
+  "https://www.facebook.com/",
+  "https://www.instagram.com/",
+  null,
+];
+const UTM_SOURCES = [null, "google", "facebook", "instagram", "newsletter"];
+const SEARCH_TERMS = [
+  "credito vehiculo", "cuanto tarda el desembolso", "credito educativo", "prepago",
+  "credito vivienda", "requisitos credito", "tasa de interes", "libre inversion",
+];
+const PAGES = ["/creditos", "/creditos/simulador"];
+const CREDIT_TYPES = ["libre-inversion", "vehiculo", "educativo", "vivienda"];
+
+function randInt(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+function pick<T>(arr: T[]): T {
+  return arr[randInt(0, arr.length - 1)];
+}
+function randomDateWithinDays(days: number): Date {
+  const now = Date.now();
+  const past = now - randInt(0, days) * 24 * 60 * 60 * 1000 - randInt(0, 86400000);
+  return new Date(past);
+}
+
+function randomSimulationMetadata() {
+  const monto = randInt(2, 100) * 1_000_000;
+  const plazoMeses = pick([12, 24, 36, 48, 60]);
+  const tasaMensual = 0.18 / 12;
+  const factor = Math.pow(1 + tasaMensual, plazoMeses);
+  const cuotaMensual = Math.round((monto * tasaMensual * factor) / (factor - 1));
+  return {
+    monto,
+    plazoMeses,
+    cuotaMensual,
+    totalPagado: cuotaMensual * plazoMeses,
+    totalIntereses: cuotaMensual * plazoMeses - monto,
+  };
+}
+
+async function main() {
+  console.log("Limpiando datos existentes...");
+  await prisma.event.deleteMany();
+  await prisma.intentScore.deleteMany();
+  await prisma.session.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.scoringRule.deleteMany();
+
+  console.log("Creando reglas de scoring...");
+  for (const rule of SCORING_RULES) {
+    await prisma.scoringRule.create({ data: rule });
+  }
+
+  const NUM_USERS = 50;
+  console.log(`Generando ${NUM_USERS} usuarios sintéticos...`);
+
+  for (let i = 0; i < NUM_USERS; i++) {
+    const firstName = pick(FIRST_NAMES);
+    const lastName = pick(LAST_NAMES);
+    const isIdentified = Math.random() < 0.35;
+    const firstSeenAt = randomDateWithinDays(30);
+
+    const user = await prisma.user.create({
+      data: {
+        cookieId: randomUUID(),
+        isIdentified,
+        email: isIdentified
+          ? `${firstName}.${lastName}${randInt(1, 99)}@${pick(DOMAINS)}`.toLowerCase()
+          : null,
+        firstSeenAt,
+        lastSeenAt: firstSeenAt,
+        consentGiven: true,
+        consentDate: firstSeenAt,
+      },
+    });
+
+    // Distribución de "engagement": la mayoría con pocas visitas, algunos muy activos
+    const engagementRoll = Math.random();
+    const numSessions =
+      engagementRoll < 0.5 ? 1 : engagementRoll < 0.8 ? randInt(2, 4) : randInt(5, 8);
+
+    let lastEventDate = firstSeenAt;
+    const usesSimulator = Math.random() < 0.4;
+    const usesChatbot = Math.random() < 0.25;
+    const abandonsForm = Math.random() < 0.3;
+
+    for (let s = 0; s < numSessions; s++) {
+      const sessionStart = new Date(
+        firstSeenAt.getTime() + s * randInt(1, 5) * 24 * 60 * 60 * 1000
+      );
+      const deviceType = pick(DEVICE_TYPES);
+      const referrer = pick(REFERRERS);
+      const utmSource = referrer ? pick(UTM_SOURCES) : null;
+      const landingPage = pick(PAGES);
+
+      const session = await prisma.session.create({
+        data: {
+          userId: user.id,
+          startedAt: sessionStart,
+          endedAt: new Date(sessionStart.getTime() + randInt(1, 20) * 60 * 1000),
+          deviceType,
+          referrer: referrer ?? undefined,
+          utmSource: utmSource ?? undefined,
+          utmMedium: utmSource ? "cpc" : undefined,
+          utmCampaign: utmSource ? "hackathon-demo" : undefined,
+          landingPage,
+        },
+      });
+
+      let cursor = sessionStart;
+      const addEvent = async (
+        eventType: string,
+        extra: Partial<{
+          pageUrl: string;
+          searchTerm: string;
+          elementClicked: string;
+          metadata: Record<string, unknown>;
+        }> = {}
+      ) => {
+        cursor = new Date(cursor.getTime() + randInt(5, 90) * 1000);
+        await prisma.event.create({
+          data: {
+            sessionId: session.id,
+            userId: user.id,
+            eventType,
+            pageUrl: extra.pageUrl,
+            searchTerm: extra.searchTerm,
+            elementClicked: extra.elementClicked,
+            metadata: extra.metadata ? JSON.stringify(extra.metadata) : null,
+            occurredAt: cursor,
+          },
+        });
+        lastEventDate = cursor;
+      };
+
+      // Toda sesión arranca con al menos un page_view
+      await addEvent("page_view", { pageUrl: landingPage });
+
+      if (Math.random() < 0.5) {
+        await addEvent("page_view", { pageUrl: pick(PAGES) });
+      }
+
+      if (Math.random() < 0.4) {
+        await addEvent("search", { searchTerm: pick(SEARCH_TERMS) });
+      }
+
+      if (Math.random() < 0.5) {
+        await addEvent("click", { elementClicked: `credito_${pick(CREDIT_TYPES)}` });
+      }
+
+      if (usesSimulator && Math.random() < 0.7) {
+        await addEvent("form_start", { pageUrl: "/creditos/simulador" });
+        if (abandonsForm && Math.random() < 0.5) {
+          await addEvent("form_abandon", { pageUrl: "/creditos/simulador" });
+        } else {
+          const metadata = randomSimulationMetadata();
+          await addEvent("simulator_use", { metadata });
+          await addEvent("form_complete", { pageUrl: "/creditos/simulador", metadata });
+        }
+      }
+
+      if (usesChatbot && Math.random() < 0.6) {
+        const metadata = randomSimulationMetadata();
+        await addEvent("chatbot_simulacion", {
+          metadata: { input: { monto: metadata.monto, plazoMeses: metadata.plazoMeses }, result: metadata },
+        });
+      }
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastSeenAt: lastEventDate },
+    });
+
+    await recalculateScoreForUser(user.id);
+
+    if ((i + 1) % 10 === 0) {
+      console.log(`  ${i + 1}/${NUM_USERS} usuarios creados`);
+    }
+  }
+
+  console.log("Seed completado.");
+}
+
+main()
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

@@ -1,0 +1,83 @@
+// Prisma schema — SQLite para demo de hackathon (cero infraestructura externa)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  cookieId      String    @unique
+  isIdentified  Boolean   @default(false)
+  email         String?
+  phone         String?
+  firstSeenAt   DateTime  @default(now())
+  lastSeenAt    DateTime  @default(now())
+  consentGiven  Boolean   @default(false)
+  consentDate   DateTime?
+
+  sessions      Session[]
+  events        Event[]
+  intentScore   IntentScore?
+
+  @@index([lastSeenAt])
+}
+
+model Session {
+  id          String    @id @default(uuid())
+  userId      String
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+  deviceType  String
+  referrer    String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  landingPage String
+
+  user   User    @relation(fields: [userId], references: [id])
+  events Event[]
+
+  @@index([userId])
+}
+
+model Event {
+  id             String   @id @default(uuid())
+  sessionId      String
+  userId         String
+  eventType      String   // page_view | search | click | simulator_use | form_start | form_abandon | chatbot_simulacion
+  pageUrl        String?
+  searchTerm     String?
+  elementClicked String?
+  metadata       String?  // JSON serializado como string (SQLite no tiene tipo JSON nativo)
+  occurredAt     DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([eventType])
+  @@index([occurredAt])
+}
+
+model ScoringRule {
+  id          String  @id @default(uuid())
+  eventType   String
+  pagePattern String?
+  points      Int
+  description String
+}
+
+model IntentScore {
+  userId         String   @id
+  currentScore   Int      @default(0)
+  scoreUpdatedAt DateTime @default(now())
+  leadStatus     String   @default("frio") // frio | tibio | caliente
+
+  user User @relation(fields: [userId], references: [id])
+}
