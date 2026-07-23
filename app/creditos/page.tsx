@@ -71,8 +71,11 @@ export default function CreditosPage() {
     <main className="min-h-screen">
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-          <span className="text-xl font-bold text-brand-700">CajaCrédito Demo</span>
-          <nav className="text-sm text-gray-600">
+          <span className="text-xl font-bold text-brand-700">Colsubsidio</span>
+          <nav className="flex gap-4 text-sm text-gray-600">
+            <Link href="/colaboradores" className="hover:text-brand-700">
+              Portal colaboradores
+            </Link>
             <Link href="/dashboard" className="hover:text-brand-700">
               Panel interno
             </Link>
@@ -158,8 +161,8 @@ export default function CreditosPage() {
       </section>
 
       <footer className="border-t border-gray-200 bg-white py-6 text-center text-xs text-gray-400">
-        CajaCrédito Demo es una marca ficticia creada para un demo de hackathon. No presta
-        servicios financieros reales.
+        Este sitio es un demo de hackathon interno de Colsubsidio. Los usuarios, eventos y
+        simulaciones que ves acá son datos sintéticos generados para la demo, no personas reales.
       </footer>
     </main>
   );

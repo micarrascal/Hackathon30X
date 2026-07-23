@@ -6,7 +6,7 @@ import { logEvent } from "@/lib/track-server";
 const anthropic = new Anthropic();
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-4-8";
 
-const SYSTEM_PROMPT = `Eres el asistente virtual de simulacion de creditos de "CajaCrédito Demo", una marca ficticia creada solo para una demo de hackathon.
+const SYSTEM_PROMPT = `Eres el asistente virtual de simulacion de creditos de Colsubsidio (este es un demo de hackathon interno: la marca es real, pero los datos de usuarios y empleados son sinteticos).
 
 Tu unico objetivo es ayudar al usuario a simular un credito de forma conversacional:
 1. Pregunta de forma natural y en el orden que tenga mas sentido segun lo que el usuario ya te haya dicho: el monto deseado del credito, el plazo en meses, y (opcional) el ingreso mensual del usuario.

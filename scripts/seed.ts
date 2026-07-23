@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { prisma } from "../lib/prisma";
 import { recalculateScoreForUser } from "../lib/scoring";
+import { calcularProbabilidadesProducto } from "../lib/product-scoring";
 
 const SCORING_RULES = [
   { eventType: "page_view", points: 5, description: "Vio una página del sitio" },
@@ -37,6 +38,22 @@ const SEARCH_TERMS = [
 const PAGES = ["/creditos", "/creditos/simulador"];
 const CREDIT_TYPES = ["libre-inversion", "vehiculo", "educativo", "vivienda"];
 
+const EMPRESAS_AFILIADAS = [
+  "Textiles del Norte S.A.S", "Distribuidora La Sabana", "Constructora Andina",
+  "Grupo Logístico Bogotá", "Alimentos El Trigal", "Servicios Integrales Colsubsidio",
+  "Manufacturas Bicentenario", "Comercializadora del Valle", "Industrias Metálicas Suba",
+  "Salud Total Corporativo",
+];
+const ROLES = [
+  "Analista", "Coordinador", "Auxiliar administrativo", "Supervisor de planta",
+  "Asesor comercial", "Jefe de área", "Ejecutivo de cuenta", "Técnico operativo",
+];
+const GENEROS = ["F", "M"];
+
+function randomCedula(): string {
+  return String(randInt(1_000_000_000, 1_099_999_999));
+}
+
 function randInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -66,6 +83,9 @@ function randomSimulationMetadata() {
 
 async function main() {
   console.log("Limpiando datos existentes...");
+  await prisma.employeeEnrichment.deleteMany();
+  await prisma.creditProductScore.deleteMany();
+  await prisma.employee.deleteMany();
   await prisma.event.deleteMany();
   await prisma.intentScore.deleteMany();
   await prisma.session.deleteMany();
@@ -79,6 +99,8 @@ async function main() {
 
   const NUM_USERS = 50;
   console.log(`Generando ${NUM_USERS} usuarios sintéticos...`);
+
+  const usuariosConActividad: { id: string; nombre: string }[] = [];
 
   for (let i = 0; i < NUM_USERS; i++) {
     const firstName = pick(FIRST_NAMES);
@@ -200,8 +222,73 @@ async function main() {
 
     await recalculateScoreForUser(user.id);
 
+    if (numSessions > 0) {
+      usuariosConActividad.push({ id: user.id, nombre: `${firstName} ${lastName}` });
+    }
+
     if ((i + 1) % 10 === 0) {
       console.log(`  ${i + 1}/${NUM_USERS} usuarios creados`);
+    }
+  }
+
+  console.log("Generando colaboradores sintéticos...");
+  const NUM_EMPLOYEES = 50;
+  const usadosComoLink = new Set<string>();
+
+  for (let i = 0; i < NUM_EMPLOYEES; i++) {
+    // ~35% de los colaboradores se vinculan a un usuario ya sembrado del sitio publico,
+    // simulando "este colaborador si visito colsubsidio.com/creditos"
+    const linkear = Math.random() < 0.35 && usuariosConActividad.length > usadosComoLink.size;
+
+    let linkedUserId: string | undefined;
+    let nombre: string;
+
+    if (linkear) {
+      let candidato;
+      do {
+        candidato = pick(usuariosConActividad);
+      } while (usadosComoLink.has(candidato.id));
+      usadosComoLink.add(candidato.id);
+      linkedUserId = candidato.id;
+      nombre = candidato.nombre;
+    } else {
+      nombre = `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;
+    }
+
+    const genero = pick(GENEROS);
+    const edad = randInt(21, 60);
+    const antiguedad = randInt(0, Math.min(edad - 18, 25));
+
+    const employee = await prisma.employee.create({
+      data: {
+        cedula: randomCedula(),
+        nombre,
+        empresa: pick(EMPRESAS_AFILIADAS),
+        antiguedad,
+        rol: pick(ROLES),
+        salario: randInt(13, 90) * 100_000,
+        correo: `${nombre.toLowerCase().replace(/\s+/g, ".")}${randInt(1, 99)}@${pick(DOMAINS)}`,
+        edad,
+        hijos: randInt(0, 3),
+        genero,
+        linkedUserId,
+      },
+    });
+
+    const [events, sessions] = linkedUserId
+      ? await Promise.all([
+          prisma.event.findMany({ where: { userId: linkedUserId } }),
+          prisma.session.findMany({ where: { userId: linkedUserId } }),
+        ])
+      : [[], []];
+
+    const scores = calcularProbabilidadesProducto(employee, events, sessions);
+    await prisma.creditProductScore.create({
+      data: { employeeId: employee.id, ...scores },
+    });
+
+    if ((i + 1) % 10 === 0) {
+      console.log(`  ${i + 1}/${NUM_EMPLOYEES} colaboradores creados`);
     }
   }
 

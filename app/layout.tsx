@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CajaCrédito Demo",
-  description: "Demo de hackathon: simulador de creditos + deteccion de intencion",
+  title: "Colsubsidio | Créditos",
+  description: "Portal de creditos de Colsubsidio: simulador + deteccion de intencion (demo de hackathon)",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

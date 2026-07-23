@@ -23,6 +23,7 @@ model User {
   sessions      Session[]
   events        Event[]
   intentScore   IntentScore?
+  employee      Employee?
 
   @@index([lastSeenAt])
 }
@@ -80,4 +81,64 @@ model IntentScore {
   leadStatus     String   @default("frio") // frio | tibio | caliente
 
   user User @relation(fields: [userId], references: [id])
+}
+
+// Empleados de empresas afiliadas a Colsubsidio — datos 100% sinteticos (ver README).
+// linkedUserId conecta, cuando aplica, con el visitante anonimo (User) que resulto ser
+// ese mismo empleado navegando colsubsidio.com/creditos.
+model Employee {
+  id           String   @id @default(uuid())
+  cedula       String   @unique
+  nombre       String
+  empresa      String
+  antiguedad   Int // anios en la empresa afiliada
+  rol          String
+  salario      Int
+  correo       String
+  edad         Int
+  hijos        Int
+  genero       String // F | M | X
+  createdAt    DateTime @default(now())
+
+  linkedUserId String?  @unique
+  linkedUser   User?    @relation(fields: [linkedUserId], references: [id])
+
+  enrichments  EmployeeEnrichment[]
+  productScore CreditProductScore?
+
+  @@index([cedula])
+}
+
+// Resultado (cacheado) de buscar el nombre del empleado en redes sociales via EnsembleData.
+// Es una coincidencia por nombre, no una identidad verificada — ver disclaimer en la UI.
+model EmployeeEnrichment {
+  id              String   @id @default(uuid())
+  employeeId      String
+  provider        String // instagram | tiktok
+  query           String // nombre usado para buscar
+  matchedUsername String?
+  matchedFullName String?
+  bio             String?
+  followers       Int?
+  profileUrl      String?
+  raw             String? // JSON crudo de la respuesta de EnsembleData
+  fetchedAt       DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+}
+
+// Probabilidad estimada (0-100, determinista, sin LLM) de interes por cada producto de credito.
+model CreditProductScore {
+  employeeId  String   @id
+  cupoCredito Float
+  consumo     Float
+  vivienda    Float
+  mujeres     Float
+  educativo   Float
+  topProduct  String
+  computedAt  DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id])
 }

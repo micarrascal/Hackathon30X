@@ -11,7 +11,7 @@ interface ChatTurn {
 const WELCOME: ChatTurn = {
   role: "assistant",
   content:
-    "¡Hola! Soy el asistente de CajaCrédito Demo. Puedo ayudarte a simular un crédito: contame cuánto necesitás y a qué plazo. Recordá que esta simulación es informativa y no constituye una preaprobación.",
+    "¡Hola! Soy el asistente virtual de créditos Colsubsidio. Puedo ayudarte a simular un crédito: contame cuánto necesitás y a qué plazo. Recordá que esta simulación es informativa y no constituye una preaprobación.",
 };
 
 export default function ChatWidget() {
@@ -64,7 +64,7 @@ export default function ChatWidget() {
           <div className="flex items-center justify-between bg-brand-700 px-4 py-3 text-white">
             <div>
               <p className="font-semibold">Simulá tu crédito</p>
-              <p className="text-xs text-brand-100">Asistente virtual · CajaCrédito Demo</p>
+              <p className="text-xs text-brand-100">Asistente virtual · Colsubsidio</p>
             </div>
             <button
               onClick={() => setOpen(false)}
