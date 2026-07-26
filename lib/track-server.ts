@@ -9,7 +9,8 @@ export type TrackableEventType =
   | "form_start"
   | "form_abandon"
   | "form_complete"
-  | "chatbot_simulacion";
+  | "chatbot_simulacion"
+  | "contact_request";
 
 export interface LogEventInput {
   userId: string;

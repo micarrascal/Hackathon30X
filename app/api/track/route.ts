@@ -10,6 +10,7 @@ const VALID_EVENT_TYPES: TrackableEventType[] = [
   "form_abandon",
   "form_complete",
   "chatbot_simulacion",
+  "contact_request",
 ];
 
 export async function POST(req: NextRequest) {

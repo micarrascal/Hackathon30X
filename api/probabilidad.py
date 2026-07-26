@@ -43,9 +43,45 @@ TASAS_MUJERES = {
     "libranza": {"A": 18.30, "B": 19.20, "C": 20.10},
 }
 
+# Palabras clave detectadas en la bio real de redes sociales (EnsembleData +
+# SocialCrawl) que suman puntos de contexto a cada producto — p.ej. una bio
+# que dice "mama, repostera, emprendedora" suma senal real a Linea Mujer y
+# MiPymes, mas alla de lo que ya dicen los campos duros del perfil (RRHH).
+KEYWORD_SIGNALS = {
+    "mujeres": ["mama", "madre", "mujer", "emprendedora", "cabeza de familia", "mompreneur"],
+    "mipymes": [
+        "emprendedora", "emprendedor", "emprendimiento", "negocio", "tienda", "marca",
+        "ventas", "repostera", "reposteria", "manualidades", "boutique", "catalogo",
+    ],
+    "educativo": ["estudiante", "universidad", "universitari", "curso", "maestria", "posgrado", "colegio"],
+    "hipotecario": ["casa propia", "hogar", "remodelacion", "vivienda", "apartamento"],
+    "mejoraVivienda": ["remodelacion", "decoracion", "diy hogar"],
+    "libreInversion": ["viajes", "viajera", "viajero", "fitness", "gym", "entrenamiento", "moda"],
+}
+
+BONUS_POR_KEYWORD = 12
+
 
 def _clamp(value, lo=0, hi=100):
     return max(lo, min(hi, value))
+
+
+def _normalizar(texto: str) -> str:
+    return texto.lower().translate(str.maketrans("áéíóúñ", "aeioun"))
+
+
+def detectar_keywords(bios: list) -> dict:
+    """Escanea las bios reales de redes sociales y devuelve, por producto,
+    que palabras clave matchearon (lista vacia si ninguna)."""
+    texto = _normalizar(" ".join(b for b in bios if b))
+    if not texto:
+        return {}
+    encontrados = {}
+    for producto, palabras in KEYWORD_SIGNALS.items():
+        matches = [p for p in palabras if p in texto]
+        if matches:
+            encontrados[producto] = matches
+    return encontrados
 
 
 def calcular_probabilidades(perfil: dict) -> dict:
@@ -148,9 +184,21 @@ def calcular_probabilidades(perfil: dict) -> dict:
     # 8. Cupo de credito (rotativo) — requiere Tarjeta Colsubsidio.
     scores["cupoRotativo"] = _clamp(75 + (10 if antiguedad >= 1 else 0)) if tiene_tarjeta else 5
 
+    # Senal real de redes sociales: si en la bio aparecen palabras clave
+    # relevantes (ej. "mama", "repostera", "emprendedora"), se suman puntos
+    # al/los producto(s) relacionados. No reemplaza los campos duros del
+    # perfil, los complementa con contexto real encontrado en redes.
+    bios = perfil.get("bios", [])
+    keyword_matches = detectar_keywords(bios) if bios else {}
+    for producto, palabras in keyword_matches.items():
+        if producto in scores:
+            scores[producto] = _clamp(scores[producto] + BONUS_POR_KEYWORD * min(len(palabras), 2))
+
     top_product = max(scores, key=lambda k: scores[k])
 
     result = {**scores, "topProduct": top_product}
+    if keyword_matches:
+        result["keywordMatches"] = keyword_matches
 
     if genero == "F":
         modalidad = "libranza" if libranza else "no_libranza"
@@ -206,7 +254,21 @@ class handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     import sys
 
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except AttributeError:
+        pass
+
     if not sys.stdin.isatty():
+        # En Windows, stdin en modo texto decodifica con el codepage del sistema
+        # (no UTF-8) por defecto, lo que corrompe tildes/eñes al leer bios reales
+        # de redes sociales. Se fuerza UTF-8 explicitamente para correr igual en
+        # cualquier SO (el endpoint HTTP real ya es seguro: lee bytes crudos y
+        # json.loads detecta la codificacion por su cuenta).
+        try:
+            sys.stdin.reconfigure(encoding="utf-8")
+        except AttributeError:
+            pass  # Python <3.7, no debería ocurrir con los runtimes que usamos
         entrada = sys.stdin.read().strip()
         perfil_prueba = json.loads(entrada) if entrada else {}
     else:

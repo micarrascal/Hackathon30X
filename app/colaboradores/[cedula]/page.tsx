@@ -18,6 +18,7 @@ const EVENT_LABELS: Record<string, string> = {
   form_abandon: "Abandono de formulario",
   form_complete: "Formulario completado",
   chatbot_simulacion: "Simulación por chatbot",
+  contact_request: "📞 Pidió ser contactado",
 };
 
 const STATUS_COLOR: Record<string, string> = { caliente: R, tibio: Y, frio: T };
@@ -211,6 +212,7 @@ export default async function ColaboradorPerfilPage({ params }: { params: { cedu
               tieneCreditoVivienda: employee.tieneCreditoVivienda,
               tieneTarjetaColsubsidio: employee.tieneTarjetaColsubsidio,
             }}
+            bios={employee.enrichments.map((e) => e.bio).filter((b): b is string => Boolean(b))}
             score={employee.productScore}
           />
         </div>

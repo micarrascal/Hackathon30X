@@ -58,6 +58,8 @@ export default function SimuladorPage() {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [contactoSolicitado, setContactoSolicitado] = useState(false);
+  const [enviandoContacto, setEnviandoContacto] = useState(false);
 
   const formStarted = useRef(false);
   const formCompleted = useRef(false);
@@ -124,6 +126,20 @@ export default function SimuladorPage() {
       setError(err instanceof Error ? err.message : "Ocurrió un error de conexión. Intentá de nuevo.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleSolicitarContacto() {
+    if (!result || enviandoContacto) return;
+    setEnviandoContacto(true);
+    try {
+      await trackEvent("contact_request", {
+        pageUrl: "/creditos/simulador",
+        metadata: { ...result, proposito, nombre, cedula, empresa, celular },
+      });
+      setContactoSolicitado(true);
+    } finally {
+      setEnviandoContacto(false);
     }
   }
 
@@ -195,6 +211,25 @@ export default function SimuladorPage() {
                 ⚠️ Esto es una simulación, no una preaprobación. Los valores reales pueden variar
                 según tu perfil crediticio al momento de solicitar el crédito.
               </p>
+
+              {contactoSolicitado ? (
+                <div
+                  className="mb-3 flex items-center justify-center gap-2 rounded-2xl py-4 text-center font-body text-sm font-bold"
+                  style={{ background: `${T}15`, color: T }}
+                >
+                  ✓ ¡Listo! Un asesor de Colsubsidio te va a contactar pronto.
+                </div>
+              ) : (
+                <button
+                  onClick={handleSolicitarContacto}
+                  disabled={enviandoContacto}
+                  className="mb-3 w-full rounded-2xl py-4 text-center font-body text-sm font-bold text-white transition active:scale-95 disabled:opacity-60"
+                  style={{ background: `linear-gradient(135deg, ${Y}, ${R})`, boxShadow: "0 8px 24px rgba(255,107,74,0.35)" }}
+                >
+                  {enviandoContacto ? "Enviando..." : "📞 Estoy interesado, quiero ser contactado"}
+                </button>
+              )}
+
               <Link
                 href="/creditos"
                 className="block w-full rounded-2xl py-4 text-center font-body text-sm font-bold text-white active:scale-95"

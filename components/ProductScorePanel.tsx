@@ -29,11 +29,13 @@ interface ScoreData {
   cupoRotativo: number;
   topProduct: string;
   computedAt: string | Date;
+  keywordMatches?: Record<string, string[]>;
 }
 
 export default function ProductScorePanel({
   employee,
   score,
+  bios = [],
 }: {
   employee: {
     edad: number;
@@ -48,6 +50,7 @@ export default function ProductScorePanel({
     tieneTarjetaColsubsidio: boolean;
   };
   score: ScoreData | null;
+  bios?: string[];
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -59,7 +62,7 @@ export default function ProductScorePanel({
       const res = await fetch("/api/probabilidad", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(employee),
+        body: JSON.stringify({ ...employee, bios }),
       });
       const data = await res.json();
       setCurrent({ ...data, computedAt: new Date().toISOString() });
@@ -102,6 +105,15 @@ export default function ProductScorePanel({
         IA, a partir de los requisitos reales de cada línea de crédito. No es un score de
         buró real.
       </p>
+
+      {current?.keywordMatches && Object.keys(current.keywordMatches).length > 0 && (
+        <p className="font-data mb-4 rounded-xl p-3 text-xs" style={{ background: "#F0F9F7", color: "#0F5F58" }}>
+          🔎 Detectado en bios de redes:{" "}
+          {Object.entries(current.keywordMatches)
+            .map(([producto, palabras]) => `${PRODUCT_LABELS[producto] ?? producto} (${palabras.join(", ")})`)
+            .join(" · ")}
+        </p>
+      )}
 
       {!current ? (
         <p className="font-data text-sm" style={{ color: `${I}40` }}>

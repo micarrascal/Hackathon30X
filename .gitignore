@@ -29,3 +29,7 @@ prisma/dev.db-journal
 
 .vercel
 .env*
+
+# python
+__pycache__/
+*.pyc

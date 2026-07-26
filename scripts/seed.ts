@@ -34,6 +34,7 @@ const SCORING_RULES = [
   { eventType: "form_abandon", points: 20, description: "Abandonó un formulario a medias" },
   { eventType: "chatbot_simulacion", points: 40, description: "Completó una simulación por chatbot" },
   { eventType: "form_complete", points: 30, description: "Completó un formulario" },
+  { eventType: "contact_request", points: 50, description: "Pidió ser contactado para un crédito — máxima señal de intención" },
 ];
 
 const FIRST_NAMES = [

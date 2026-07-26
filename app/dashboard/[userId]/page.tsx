@@ -13,6 +13,7 @@ const EVENT_LABELS: Record<string, string> = {
   form_abandon: "Abandono de formulario",
   form_complete: "Formulario completado",
   chatbot_simulacion: "Simulación por chatbot",
+  contact_request: "📞 Pidió ser contactado",
 };
 
 const STATUS_STYLES: Record<string, string> = {
