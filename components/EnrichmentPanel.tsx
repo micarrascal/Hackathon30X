@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { I, T, Y } from "@/components/woop/tokens";
 
 interface EnrichmentRow {
   id: string;
@@ -16,6 +17,8 @@ interface EnrichmentRow {
   profileUrl: string | null;
   fetchedAt: string | Date;
 }
+
+const PROVIDER_ICON: Record<string, string> = { instagram: "📸", tiktok: "🎵" };
 
 export default function EnrichmentPanel({
   cedula,
@@ -51,56 +54,66 @@ export default function EnrichmentPanel({
   }
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-gray-900">Enriquecimiento de redes sociales</h2>
+    <section className="rounded-3xl bg-white p-6" style={{ boxShadow: "0 4px 20px rgba(22,41,77,0.06)" }}>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="font-display text-lg font-bold" style={{ color: I }}>
+          Presencia en redes sociales
+        </h2>
         <button
           onClick={handleBuscar}
           disabled={loading}
-          className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+          className="font-body rounded-xl px-4 py-2 text-xs font-semibold text-white transition disabled:opacity-50"
+          style={{ background: I }}
         >
           {loading ? "Buscando..." : "Buscar en redes"}
         </button>
       </div>
 
-      <p className="mt-3 rounded-lg bg-yellow-50 p-3 text-xs text-yellow-800">
-        ⚠️ Estos resultados son coincidencias por nombre en redes públicas (vía EnsembleData,
-        completadas con el perfil público de SocialCrawl cuando hay match),{" "}
-        <strong>no son una identidad verificada</strong>. Pueden corresponder a otra persona con el
+      <p className="font-data mb-4 rounded-xl p-3 text-xs" style={{ background: `${Y}20`, color: "#7A5E00" }}>
+        ⚠️ Coincidencia por nombre en redes públicas (EnsembleData + SocialCrawl),{" "}
+        <strong>no es una identidad verificada</strong>. Puede corresponder a otra persona con el
         mismo nombre.
       </p>
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="font-data mb-3 text-sm text-red-600">{error}</p>}
 
       {enrichments.length === 0 ? (
-        <p className="mt-4 text-sm text-gray-400">
+        <p className="font-data text-sm" style={{ color: `${I}40` }}>
           Todavía no se buscó en redes para este colaborador.
         </p>
       ) : (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3.5 sm:grid-cols-2">
           {enrichments.map((e) => (
-            <div key={e.id} className="rounded-lg border border-gray-200 p-3 text-sm">
-              <p className="text-xs uppercase tracking-wide text-brand-600">{e.provider}</p>
+            <div key={e.id} className="rounded-2xl p-4" style={{ background: "#F7F8FC" }}>
+              <div className="mb-3 flex items-center gap-2">
+                <span style={{ fontSize: 20 }}>{PROVIDER_ICON[e.provider] ?? "🔗"}</span>
+                <span className="font-data text-sm font-bold" style={{ color: I }}>{e.provider}</span>
+                {e.verified && (
+                  <span className="ml-auto text-sm" style={{ color: T }} title="Cuenta verificada">✔ verificada</span>
+                )}
+              </div>
               {e.matchedUsername ? (
                 <>
-                  <p className="font-semibold text-gray-900">
+                  <p className="font-data text-sm font-semibold" style={{ color: I }}>
                     {e.matchedFullName ?? e.matchedUsername}{" "}
-                    <span className="font-normal text-gray-400">@{e.matchedUsername}</span>
-                    {e.verified && (
-                      <span className="ml-1 text-brand-600" title="Cuenta verificada">
-                        ✔
-                      </span>
-                    )}
+                    <span className="font-normal" style={{ color: `${I}45` }}>@{e.matchedUsername}</span>
                   </p>
-                  {e.bio && <p className="mt-1 text-gray-600">{e.bio}</p>}
-                  {e.followers !== null && (
-                    <p className="mt-1 text-gray-500">
-                      {e.followers.toLocaleString("es-CO")} seguidores
-                      {e.engagementRate !== null &&
-                        ` · ${(e.engagementRate * 100).toFixed(1)}% engagement`}
-                    </p>
+                  {e.bio && (
+                    <p className="font-data mt-1 text-xs" style={{ color: `${I}70` }}>{e.bio}</p>
                   )}
-                  <p className="mt-1 text-[11px] text-gray-400">
+                  <div className="font-data mt-2 flex justify-between text-xs" style={{ color: `${I}55` }}>
+                    <span>Seguidores</span>
+                    <span className="font-bold" style={{ color: I }}>
+                      {e.followers !== null ? e.followers.toLocaleString("es-CO") : "—"}
+                    </span>
+                  </div>
+                  {e.engagementRate !== null && (
+                    <div className="font-data mt-1 flex justify-between text-xs" style={{ color: `${I}55` }}>
+                      <span>Engagement</span>
+                      <span className="font-bold" style={{ color: T }}>{(e.engagementRate * 100).toFixed(1)}%</span>
+                    </div>
+                  )}
+                  <p className="font-data mt-2 text-[10px] uppercase tracking-wide" style={{ color: `${I}35` }}>
                     Fuente: {e.source === "ensembledata+socialcrawl" ? "EnsembleData + SocialCrawl" : "EnsembleData"}
                   </p>
                   {e.profileUrl && (
@@ -108,14 +121,15 @@ export default function EnrichmentPanel({
                       href={e.profileUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-1 inline-block text-brand-600 hover:underline"
+                      className="font-data mt-1 inline-block text-xs font-semibold hover:underline"
+                      style={{ color: T }}
                     >
                       Ver perfil ↗
                     </a>
                   )}
                 </>
               ) : (
-                <p className="text-gray-400">Sin coincidencias.</p>
+                <p className="font-data text-xs" style={{ color: `${I}40` }}>Sin coincidencias.</p>
               )}
             </div>
           ))}

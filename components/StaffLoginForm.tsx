@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { I, Y, R } from "@/components/woop/tokens";
 
 export default function StaffLoginForm() {
   const router = useRouter();
@@ -15,32 +16,39 @@ export default function StaffLoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Cédula corporativa</label>
+    <form onSubmit={handleSubmit}>
+      <div className="mb-4">
+        <label className="font-data mb-1.5 block text-xs font-semibold" style={{ color: I }}>
+          Usuario corporativo
+        </label>
         <input
           type="text"
           required
           value={cedulaAcceso}
           onChange={(e) => setCedulaAcceso(e.target.value)}
-          placeholder="Ej: 1020304050 (cualquier valor sirve)"
-          className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          placeholder="ana.castro@colsubsidio.com"
+          className="font-data w-full rounded-xl px-4 py-3.5 text-sm outline-none"
+          style={{ background: "#F7F8FC", border: `1.5px solid ${I}10`, color: I }}
         />
       </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Contraseña</label>
+      <div className="mb-5">
+        <label className="font-data mb-1.5 block text-xs font-semibold" style={{ color: I }}>
+          Contraseña
+        </label>
         <input
           type="password"
           required
-          placeholder="••••••••"
-          className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          placeholder="••••••••••"
+          className="font-data w-full rounded-xl px-4 py-3.5 text-sm outline-none"
+          style={{ background: "#F7F8FC", border: `1.5px solid ${I}10`, color: I }}
         />
       </div>
       <button
         type="submit"
-        className="w-full rounded-lg bg-brand-600 px-6 py-3 font-semibold text-white hover:bg-brand-700"
+        className="font-body w-full rounded-2xl py-4 text-sm font-bold text-white transition active:scale-95"
+        style={{ background: `linear-gradient(135deg, ${Y}, ${R})`, boxShadow: "0 8px 24px rgba(255,107,74,0.28)" }}
       >
-        Ingresar
+        Ingresar al sistema →
       </button>
     </form>
   );

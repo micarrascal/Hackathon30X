@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { I, Y, R } from "@/components/woop/tokens";
 
 export default function SearchByCedula() {
   const router = useRouter();
@@ -15,17 +16,19 @@ export default function SearchByCedula() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2">
+    <form onSubmit={handleSubmit} className="flex gap-3">
       <input
         type="text"
         value={cedula}
         onChange={(e) => setCedula(e.target.value)}
-        placeholder="Buscar por número de cédula..."
-        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+        placeholder="Número de cédula"
+        className="font-display flex-1 rounded-xl px-5 py-4 text-2xl font-semibold outline-none"
+        style={{ background: "#F7F8FC", border: `2px solid ${Y}`, color: I }}
       />
       <button
         type="submit"
-        className="rounded-lg bg-brand-600 px-5 py-2 font-medium text-white hover:bg-brand-700"
+        className="font-body shrink-0 rounded-xl px-8 py-4 text-sm font-bold text-white transition active:scale-95"
+        style={{ background: `linear-gradient(135deg, ${Y}, ${R})`, boxShadow: "0 6px 20px rgba(255,107,74,0.3)" }}
       >
         Buscar
       </button>

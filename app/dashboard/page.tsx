@@ -31,10 +31,10 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="flex gap-4 text-sm">
-          <Link href="/colaboradores" className="text-brand-600 hover:text-brand-800">
+          <Link href="/colaboradores" className="hover:opacity-70" style={{ color: "#17A398" }}>
             Portal colaboradores →
           </Link>
-          <Link href="/creditos" className="text-brand-600 hover:text-brand-800">
+          <Link href="/creditos" className="hover:opacity-70" style={{ color: "#17A398" }}>
             ← Ir al sitio público
           </Link>
         </div>
@@ -60,7 +60,8 @@ export default async function DashboardPage() {
                   <td className="px-4 py-3">
                     <Link
                       href={`/dashboard/${user.id}`}
-                      className="font-medium text-brand-700 hover:underline"
+                      className="font-medium hover:underline"
+                      style={{ color: "#16294D" }}
                     >
                       {user.email ?? user.cookieId.slice(0, 12)}
                     </Link>

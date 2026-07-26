@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import StaffLoginForm from "@/components/StaffLoginForm";
+import WoopyMascot from "@/components/woop/WoopyMascot";
+import WoopLockup from "@/components/woop/WoopLockup";
+import { I, T } from "@/components/woop/tokens";
 
 export const dynamic = "force-dynamic";
 
@@ -11,30 +14,43 @@ export default async function ColaboradoresLoginPage() {
   const ejemplos = [...conActividad, ...sinActividad];
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-brand-700 px-4 py-12">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-xl">
-        <h1 className="text-xl font-bold text-gray-900">Portal de colaboradores</h1>
-        <p className="mt-1 text-sm text-gray-500">Colsubsidio · Acceso interno</p>
+    <main className="flex min-h-screen items-center justify-center px-4 py-12 font-body" style={{ background: "#F0F2F8" }}>
+      <div className="w-full max-w-sm rounded-3xl bg-white p-10 shadow-2xl" style={{ boxShadow: "0 8px 48px rgba(22,41,77,0.1)" }}>
+        <div className="mb-8 flex flex-col items-center">
+          <WoopyMascot size={88} />
+          <div className="mt-3">
+            <WoopLockup size="md" />
+          </div>
+          <p className="font-data mt-2 text-center text-sm" style={{ color: `${I}60` }}>
+            Acceso interno — Asesores Colsubsidio
+          </p>
+        </div>
 
         <StaffLoginForm />
 
-        <p className="mt-4 text-xs text-gray-400">
+        <p className="font-data mt-4 text-center text-xs" style={{ color: `${I}40` }}>
           Login simulado para la demo — cualquier cédula/contraseña te deja entrar, no valida
           contra ningún sistema real.
         </p>
 
         {ejemplos.length > 0 && (
-          <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <p className="text-xs font-semibold text-gray-600">
-              Datos de prueba — una vez adentro, buscá alguna de estas cédulas:
+          <div className="mt-6 rounded-2xl p-4" style={{ background: "#F7F8FC" }}>
+            <p className="font-data text-xs font-semibold uppercase tracking-widest" style={{ color: `${I}45` }}>
+              Datos de prueba
             </p>
-            <ul className="mt-2 space-y-1 text-xs text-gray-600">
+            <p className="font-data mt-1 text-xs" style={{ color: `${I}55` }}>
+              Una vez adentro, buscá alguna de estas cédulas:
+            </p>
+            <ul className="mt-3 space-y-1.5">
               {ejemplos.map((e) => (
-                <li key={e.id} className="flex justify-between gap-2">
-                  <span className="font-mono">{e.cedula}</span>
-                  <span className="truncate text-gray-500">{e.nombre}</span>
+                <li key={e.id} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="font-data font-semibold" style={{ color: I }}>{e.cedula}</span>
+                  <span className="font-data truncate" style={{ color: `${I}55` }}>{e.nombre}</span>
                   {e.linkedUserId && (
-                    <span className="shrink-0 rounded-full bg-green-100 px-1.5 text-green-700">
+                    <span
+                      className="font-data shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      style={{ background: `${T}18`, color: T }}
+                    >
                       con actividad
                     </span>
                   )}

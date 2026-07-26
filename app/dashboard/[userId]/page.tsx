@@ -42,7 +42,7 @@ export default async function UserTimelinePage({
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
-      <Link href="/dashboard" className="text-sm text-brand-600 hover:text-brand-800">
+      <Link href="/dashboard" className="text-sm hover:opacity-70" style={{ color: "#17A398" }}>
         ← Volver al panel
       </Link>
 

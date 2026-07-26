@@ -3,6 +3,10 @@
 Demo de **hackathon interno de Colsubsidio** que detecta **intención de solicitud de crédito**
 combinando tracking de comportamiento first-party, un chatbot conversacional que simula un
 crédito, y un portal interno de colaboradores con enriquecimiento y probabilidad de producto.
+El diseño visual ("Woop", con la mascota Woopy) viene del proyecto Figma Make
+`UI_UX System for Woop` — se portó al completo dentro de este mismo proyecto Next.js,
+conectado a la lógica de backend real (tracking, Prisma/Postgres, Claude, EnsembleData +
+SocialCrawl, y el motor de probabilidad en Python).
 
 **La marca es real (Colsubsidio), pero todos los datos son sintéticos**: usuarios, eventos,
 empleados, cédulas, salarios y correos son generados por `npm run seed` — no corresponden a
@@ -11,10 +15,12 @@ producción.**
 
 ## Cómo correrlo
 
-Requisitos: Node.js 18+ y una base **Postgres** (Vercel Postgres o Neon, ambos con free
-tier — ver [Desplegar en Vercel](#desplegar-en-vercel) para cómo conseguir una en 2 minutos).
-El proyecto dejó de usar SQLite porque no sobrevive en un entorno serverless como Vercel
-(filesystem efímero) — ver la nota al final de esta sección.
+Requisitos: Node.js 18+, **Python 3.10+** (para `api/probabilidad.py` — usado por el seed y
+por el endpoint de probabilidad; sin dependencias externas, cualquier Python 3.10+ sirve) y una
+base **Postgres** (Vercel Postgres o Neon, ambos con free tier — ver
+[Desplegar en Vercel](#desplegar-en-vercel) para cómo conseguir una en 2 minutos). El proyecto
+dejó de usar SQLite porque no sobrevive en un entorno serverless como Vercel (filesystem
+efímero) — ver la nota al final de esta sección.
 
 ```bash
 npm install           # instala dependencias y corre `prisma generate`
@@ -59,7 +65,7 @@ simplemente avisan que esa integración no está configurada.
 | **Búsqueda por cédula** | [app/colaboradores/page.tsx](app/colaboradores/page.tsx), [components/SearchByCedula.tsx](components/SearchByCedula.tsx) | Buscador + listado completo de colaboradores sembrados |
 | **Perfil del colaborador** | [app/colaboradores/[cedula]/page.tsx](app/colaboradores/%5Bcedula%5D/page.tsx) | Datos del empleado (cédula, nombre, empresa, antigüedad, rol, salario, correo, edad, hijos, género) + actividad en `colsubsidio.com/creditos` si se detectó (timeline de eventos + fuente de la visita: orgánico, anuncio de Facebook/Instagram, etc.) |
 | **Enriquecimiento de redes (real)** | [lib/ensembledata.ts](lib/ensembledata.ts), [lib/socialcrawl.ts](lib/socialcrawl.ts), [app/api/colaboradores/enriquecer/route.ts](app/api/colaboradores/enriquecer/route.ts), [components/EnrichmentPanel.tsx](components/EnrichmentPanel.tsx) | Combina dos APIs reales: **EnsembleData** busca por nombre (Instagram `search` + TikTok `userSearch`) y descubre un username candidato; **SocialCrawl** (`/v1/{tiktok,instagram}/profile`) trae un perfil más completo (bio, verificado, seguidores, engagement) para ese mismo username. Como los colaboradores son sintéticos, cualquier resultado es una **coincidencia por nombre, no una identidad verificada** — así se etiqueta explícitamente en la UI |
-| **Probabilidad por producto** | [lib/product-scoring.ts](lib/product-scoring.ts), [app/api/colaboradores/recalcular/route.ts](app/api/colaboradores/recalcular/route.ts), [components/ProductScorePanel.tsx](components/ProductScorePanel.tsx) | Reglas determinísticas (sin LLM) que estiman % de interés en 5 productos: cupo de crédito, consumo, vivienda, Línea Mujer, educativo — a partir de datos del empleado + su actividad en el sitio |
+| **Probabilidad por producto (Python)** | [api/probabilidad.py](api/probabilidad.py), [components/ProductScorePanel.tsx](components/ProductScorePanel.tsx) | Función serverless de **Python** (stdlib puro, sin dependencias) desplegada aparte de las rutas de Next.js. Calcula, con reglas deterministas (sin LLM), la probabilidad 0-100 de cada una de las **8 líneas reales** de Colsubsidio (libre inversión, hipotecario, mejora de vivienda, educativo, Línea Mujer, compra de cartera, MiPymes, cupo rotativo) según los requisitos reales documentados en `credito.md`. Corre local (`python api/probabilidad.py`) y en producción (`/api/probabilidad`) con el mismo código |
 | **Datos sintéticos de empleados** | [scripts/seed.ts](scripts/seed.ts) | Genera ~50 colaboradores ficticios (cédula, nombre, empresa afiliada, salario, edad, hijos, género); ~35% se vinculan a un usuario ya sembrado del sitio público para simular "este colaborador sí visitó creditos" |
 | **Schema de datos** | [prisma/schema.prisma](prisma/schema.prisma) | SQLite vía Prisma — cero configuración de infraestructura |
 

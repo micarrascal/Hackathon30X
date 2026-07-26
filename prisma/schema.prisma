@@ -104,6 +104,14 @@ model Employee {
   genero       String // F | M | X
   createdAt    DateTime @default(now())
 
+  // Campos usados por el motor de probabilidad (api/probabilidad.py) para
+  // aproximar los requisitos reales de credito.md (ver UI_UX System for Woop).
+  categoriaAfiliacion    String  @default("B") // A | B | C
+  tipoVinculacion        String  @default("asalariado") // asalariado | pensionado | independiente
+  libranza               Boolean @default(false)
+  tieneCreditoVivienda   Boolean @default(false) // habilita "mejora de vivienda"
+  tieneTarjetaColsubsidio Boolean @default(true) // habilita "cupo rotativo"
+
   linkedUserId String?  @unique
   linkedUser   User?    @relation(fields: [linkedUserId], references: [id])
 
@@ -136,16 +144,21 @@ model EmployeeEnrichment {
   @@index([employeeId])
 }
 
-// Probabilidad estimada (0-100, determinista, sin LLM) de interes por cada producto de credito.
+// Probabilidad estimada (0-100, determinista, calculada por api/probabilidad.py en Python,
+// sin LLM) de interes por cada una de las 8 lineas reales de credito de Colsubsidio
+// (ver UI_UX System for Woop (1)/src/imports/credito.md).
 model CreditProductScore {
-  employeeId  String   @id
-  cupoCredito Float
-  consumo     Float
-  vivienda    Float
-  mujeres     Float
-  educativo   Float
-  topProduct  String
-  computedAt  DateTime @default(now())
+  employeeId    String   @id
+  libreInversion Float
+  hipotecario    Float
+  mejoraVivienda Float
+  educativo      Float
+  mujeres        Float
+  compraCartera  Float
+  mipymes        Float
+  cupoRotativo   Float
+  topProduct     String
+  computedAt     DateTime @default(now())
 
   employee Employee @relation(fields: [employeeId], references: [id])
 }

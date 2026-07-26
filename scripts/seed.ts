@@ -1,7 +1,31 @@
 import { randomUUID } from "crypto";
+import { execFileSync } from "child_process";
+import path from "path";
 import { prisma } from "../lib/prisma";
 import { recalculateScoreForUser } from "../lib/scoring";
-import { calcularProbabilidadesProducto } from "../lib/product-scoring";
+
+const PYTHON_SCRIPT = path.join(__dirname, "..", "api", "probabilidad.py");
+
+// Corre el mismo motor de probabilidad (Python) que usa la funcion serverless
+// de produccion, para que el seed y el endpoint en vivo nunca queden desincronizados.
+function calcularProbabilidadesPython(perfil: Record<string, unknown>) {
+  const salida = execFileSync("python", [PYTHON_SCRIPT], {
+    input: JSON.stringify(perfil),
+    encoding: "utf8",
+  });
+  const { tasaMujeresEA: _tasaMujeresEA, ...scores } = JSON.parse(salida);
+  return scores as {
+    libreInversion: number;
+    hipotecario: number;
+    mejoraVivienda: number;
+    educativo: number;
+    mujeres: number;
+    compraCartera: number;
+    mipymes: number;
+    cupoRotativo: number;
+    topProduct: string;
+  };
+}
 
 const SCORING_RULES = [
   { eventType: "page_view", points: 5, description: "Vio una página del sitio" },
@@ -49,6 +73,8 @@ const ROLES = [
   "Asesor comercial", "Jefe de área", "Ejecutivo de cuenta", "Técnico operativo",
 ];
 const GENEROS = ["F", "M"];
+const CATEGORIAS_AFILIACION = ["A", "B", "C"];
+const VINCULACIONES = ["asalariado", "pensionado", "independiente"];
 
 function randomCedula(): string {
   return String(randInt(1_000_000_000, 1_099_999_999));
@@ -258,6 +284,11 @@ async function main() {
     const genero = pick(GENEROS);
     const edad = randInt(21, 60);
     const antiguedad = randInt(0, Math.min(edad - 18, 25));
+    const tipoVinculacion = pick(VINCULACIONES);
+    const categoriaAfiliacion = pick(CATEGORIAS_AFILIACION);
+    const libranza = Math.random() < 0.4;
+    const tieneCreditoVivienda = Math.random() < 0.15;
+    const tieneTarjetaColsubsidio = Math.random() < 0.8;
 
     const employee = await prisma.employee.create({
       data: {
@@ -271,18 +302,27 @@ async function main() {
         edad,
         hijos: randInt(0, 3),
         genero,
+        categoriaAfiliacion,
+        tipoVinculacion,
+        libranza,
+        tieneCreditoVivienda,
+        tieneTarjetaColsubsidio,
         linkedUserId,
       },
     });
 
-    const [events, sessions] = linkedUserId
-      ? await Promise.all([
-          prisma.event.findMany({ where: { userId: linkedUserId } }),
-          prisma.session.findMany({ where: { userId: linkedUserId } }),
-        ])
-      : [[], []];
-
-    const scores = calcularProbabilidadesProducto(employee, events, sessions);
+    const scores = calcularProbabilidadesPython({
+      edad: employee.edad,
+      antiguedad: employee.antiguedad,
+      salario: employee.salario,
+      hijos: employee.hijos,
+      genero: employee.genero,
+      categoriaAfiliacion: employee.categoriaAfiliacion,
+      tipoVinculacion: employee.tipoVinculacion,
+      libranza: employee.libranza,
+      tieneCreditoVivienda: employee.tieneCreditoVivienda,
+      tieneTarjetaColsubsidio: employee.tieneTarjetaColsubsidio,
+    });
     await prisma.creditProductScore.create({
       data: { employeeId: employee.id, ...scores },
     });
