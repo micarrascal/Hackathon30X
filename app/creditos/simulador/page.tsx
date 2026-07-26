@@ -47,14 +47,14 @@ async function simular(monto: number, plazoMeses: number, ingresoMensual?: numbe
 export default function SimuladorPage() {
   const [step, setStep] = useState(0);
   const [monto, setMonto] = useState(8_500_000);
-  const [proposito, setProposito] = useState("");
+  const [proposito, setProposito] = useState("libre");
   const [plazoMeses, setPlazoMeses] = useState(24);
   const [cuotasPorPlazo, setCuotasPorPlazo] = useState<Record<number, number>>({});
-  const [nombre, setNombre] = useState("");
-  const [cedula, setCedula] = useState("");
-  const [ingresoMensual, setIngresoMensual] = useState("");
-  const [empresa, setEmpresa] = useState("");
-  const [celular, setCelular] = useState("");
+  const [nombre, setNombre] = useState("María Alejandra González");
+  const [cedula, setCedula] = useState("1.234.567.890");
+  const [ingresoMensual, setIngresoMensual] = useState("3800000");
+  const [empresa, setEmpresa] = useState("Tecnología S.A.S.");
+  const [celular, setCelular] = useState("310 000 0000");
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
