@@ -5,39 +5,59 @@
 // sigue viviendo unicamente en Python — esto es solo para mostrarlas en pantalla.
 export { PRODUCT_LABELS } from "@/lib/creditProducts";
 
+// Bilingue (es/en) a proposito: las bios reales de redes vienen en cualquier
+// idioma, no solo espanol — ver caso real "THE HAIR WIZARD @trio_salon_and_boutique"
+// que sin ingles no matcheaba nada aunque claramente es un negocio de peluqueria.
 const KEYWORD_SIGNALS: Record<string, string[]> = {
   mujeres: [
     "mama", "madre", "mujer", "emprendedora", "cabeza de familia", "mompreneur",
     "esposa", "hija", "abuela", "tia", "girlboss", "soymama",
+    "mom", "mother", "wife", "single mom", "girlmom",
   ],
   mipymes: [
     "emprendedora", "emprendedor", "emprendimiento", "negocio", "tienda", "marca",
     "ventas", "repostera", "reposteria", "manualidades", "boutique", "catalogo",
     "pyme", "freelance", "independiente", "disenadora", "diseno", "artesanias",
     "joyeria", "panaderia", "peluqueria", "salon de belleza", "maquillaje", "unas", "coach",
+    "entrepreneur", "small business", "my business", "business owner", "shop owner",
+    "boutique owner", "salon", "hair salon", "hairstylist", "hairdresser", "hair",
+    "barber", "barbershop", "beauty", "makeup artist", "nail tech", "esthetician",
+    "handmade", "custom orders", "dm to order", "shop now", "self employed", "small biz",
   ],
   educativo: [
     "estudiante", "universidad", "universitari", "curso", "maestria", "posgrado",
     "colegio", "profesora", "profesor", "docente", "tesis", "semestre", "beca",
+    "student", "university", "college", "graduate", "teacher", "professor", "masters degree",
   ],
   hipotecario: [
     "casa propia", "hogar", "remodelacion", "vivienda", "apartamento",
     "finca raiz", "nueva casa", "mi casa", "propietaria", "propietario",
+    "homeowner", "new home", "real estate", "dream home",
   ],
-  mejoraVivienda: ["remodelacion", "decoracion", "diy hogar", "renovacion", "interiorismo", "jardin"],
+  mejoraVivienda: [
+    "remodelacion", "decoracion", "diy hogar", "renovacion", "interiorismo", "jardin",
+    "home decor", "renovation", "interior design", "garden",
+  ],
   libreInversion: [
     "viajes", "viajera", "viajero", "fitness", "gym", "entrenamiento", "moda",
     "aventura", "explorar", "turismo", "running", "runner", "crossfit", "yoga", "wellness",
+    "travel", "traveler", "wanderlust", "adventure", "explorer", "fashion", "personal trainer",
   ],
-  compraCartera: ["deudas", "consolidar", "cuotas atrasadas", "presupuesto", "ahorro", "finanzas personales"],
-  cupoRotativo: ["compras", "shopping", "tarjeta", "ofertas", "promo", "descuentos"],
+  compraCartera: [
+    "deudas", "consolidar", "cuotas atrasadas", "presupuesto", "ahorro", "finanzas personales",
+    "debt", "budget", "savings", "financial freedom",
+  ],
+  cupoRotativo: ["compras", "shopping", "tarjeta", "ofertas", "promo", "descuentos", "sale", "deals", "discount"],
 };
 
 function normalizar(texto: string): string {
   return texto
     .toLowerCase()
     .replace(/[áéíóú]/g, (c) => "aeiou"["áéíóú".indexOf(c)])
-    .replace(/ñ/g, "n");
+    .replace(/ñ/g, "n")
+    // "_" y "." cuentan como caracter de palabra para \b — sin esto, un handle
+    // como "@trio_salon_and_boutique" nunca deja matchear "salon"/"boutique".
+    .replace(/[_.]/g, " ");
 }
 
 function escapeRegExp(texto: string): string {

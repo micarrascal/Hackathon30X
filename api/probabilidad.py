@@ -49,32 +49,49 @@ TASAS_MUJERES = {
 # SocialCrawl) que suman puntos de contexto a cada producto — p.ej. una bio
 # que dice "mama, repostera, emprendedora" suma senal real a Linea Mujer y
 # MiPymes, mas alla de lo que ya dicen los campos duros del perfil (RRHH).
+# Bilingue (es/en) a proposito: las bios reales vienen en cualquier idioma —
+# caso real "THE HAIR WIZARD @trio_salon_and_boutique" no matcheaba nada sin
+# ingles, aunque es claramente un negocio de peluqueria (senal de MiPymes).
 KEYWORD_SIGNALS = {
     "mujeres": [
         "mama", "madre", "mujer", "emprendedora", "cabeza de familia", "mompreneur",
         "esposa", "hija", "abuela", "tia", "girlboss", "soymama",
+        "mom", "mother", "wife", "single mom", "girlmom",
     ],
     "mipymes": [
         "emprendedora", "emprendedor", "emprendimiento", "negocio", "tienda", "marca",
         "ventas", "repostera", "reposteria", "manualidades", "boutique", "catalogo",
         "pyme", "freelance", "independiente", "disenadora", "diseno", "artesanias",
         "joyeria", "panaderia", "peluqueria", "salon de belleza", "maquillaje", "unas", "coach",
+        "entrepreneur", "small business", "my business", "business owner", "shop owner",
+        "boutique owner", "salon", "hair salon", "hairstylist", "hairdresser", "hair",
+        "barber", "barbershop", "beauty", "makeup artist", "nail tech", "esthetician",
+        "handmade", "custom orders", "dm to order", "shop now", "self employed", "small biz",
     ],
     "educativo": [
         "estudiante", "universidad", "universitari", "curso", "maestria", "posgrado",
         "colegio", "profesora", "profesor", "docente", "tesis", "semestre", "beca",
+        "student", "university", "college", "graduate", "teacher", "professor", "masters degree",
     ],
     "hipotecario": [
         "casa propia", "hogar", "remodelacion", "vivienda", "apartamento",
         "finca raiz", "nueva casa", "mi casa", "propietaria", "propietario",
+        "homeowner", "new home", "real estate", "dream home",
     ],
-    "mejoraVivienda": ["remodelacion", "decoracion", "diy hogar", "renovacion", "interiorismo", "jardin"],
+    "mejoraVivienda": [
+        "remodelacion", "decoracion", "diy hogar", "renovacion", "interiorismo", "jardin",
+        "home decor", "renovation", "interior design", "garden",
+    ],
     "libreInversion": [
         "viajes", "viajera", "viajero", "fitness", "gym", "entrenamiento", "moda",
         "aventura", "explorar", "turismo", "running", "runner", "crossfit", "yoga", "wellness",
+        "travel", "traveler", "wanderlust", "adventure", "explorer", "fashion", "personal trainer",
     ],
-    "compraCartera": ["deudas", "consolidar", "cuotas atrasadas", "presupuesto", "ahorro", "finanzas personales"],
-    "cupoRotativo": ["compras", "shopping", "tarjeta", "ofertas", "promo", "descuentos"],
+    "compraCartera": [
+        "deudas", "consolidar", "cuotas atrasadas", "presupuesto", "ahorro", "finanzas personales",
+        "debt", "budget", "savings", "financial freedom",
+    ],
+    "cupoRotativo": ["compras", "shopping", "tarjeta", "ofertas", "promo", "descuentos", "sale", "deals", "discount"],
 }
 
 BONUS_POR_KEYWORD = 12
@@ -89,7 +106,10 @@ def _clamp(value, lo=0, hi=100):
 
 
 def _normalizar(texto: str) -> str:
-    return texto.lower().translate(str.maketrans("áéíóúñ", "aeioun"))
+    # "_" y "." cuentan como caracter de palabra para \b — sin esto, un handle
+    # como "@trio_salon_and_boutique" nunca deja matchear "salon"/"boutique".
+    sin_separadores = texto.replace("_", " ").replace(".", " ")
+    return sin_separadores.lower().translate(str.maketrans("áéíóúñ", "aeioun"))
 
 
 def detectar_keywords(bios: list) -> dict:
