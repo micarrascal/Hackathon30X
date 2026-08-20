@@ -3,8 +3,11 @@ import { cookies } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import EnrichmentPanel from "@/components/EnrichmentPanel";
-import ProductScorePanel from "@/components/ProductScorePanel";
+import KeywordSignalsPanel from "@/components/KeywordSignalsPanel";
+import WoopFormPanel from "@/components/WoopFormPanel";
+import RecomendacionSummaryCard from "@/components/RecomendacionSummaryCard";
 import WoopLockup from "@/components/woop/WoopLockup";
+import { parseWoopFormMetadata } from "@/lib/woopForm";
 import { I, Y, R, T } from "@/components/woop/tokens";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +51,7 @@ export default async function ColaboradorPerfilPage({ params }: { params: { cedu
     include: {
       enrichments: { orderBy: { fetchedAt: "desc" } },
       productScore: true,
+      woopRegistro: true,
       linkedUser: {
         include: { sessions: true, events: { orderBy: { occurredAt: "desc" } }, intentScore: true },
       },
@@ -59,6 +63,27 @@ export default async function ColaboradorPerfilPage({ params }: { params: { cedu
   const linkedUser = employee.linkedUser;
   const status = linkedUser?.intentScore?.leadStatus ?? "frio";
   const score = linkedUser?.intentScore?.currentScore ?? 0;
+
+  // Evento mas relevante para mostrar "lo que lleno en el formulario de Woop":
+  // se prioriza contact_request (tiene toda la data + intencion explicita de
+  // contacto), si no hay se cae a simulator_use/form_complete.
+  const eventosForm =
+    linkedUser?.events.filter((e) =>
+      ["contact_request", "simulator_use", "form_complete"].includes(e.eventType)
+    ) ?? [];
+  const eventoContacto = eventosForm.find((e) => e.eventType === "contact_request");
+  const eventoFormRelevante =
+    eventoContacto ??
+    eventosForm.find((e) => e.eventType === "simulator_use") ??
+    eventosForm.find((e) => e.eventType === "form_complete");
+  const woopFormData = parseWoopFormMetadata(eventoFormRelevante?.metadata);
+  const tieneFormWoop = Boolean(woopFormData);
+
+  const topProduct = employee.productScore?.topProduct ?? null;
+  const topValue =
+    topProduct && employee.productScore
+      ? ((employee.productScore as unknown as Record<string, number>)[topProduct] ?? null)
+      : null;
 
   const cuotaMaxima = Math.round(employee.salario * 0.3);
   const iniciales = employee.nombre
@@ -91,14 +116,30 @@ export default async function ColaboradorPerfilPage({ params }: { params: { cedu
             <h1 className="font-display text-xl font-bold" style={{ color: I }}>{employee.nombre}</h1>
             <p className="font-data text-sm" style={{ color: `${I}55` }}>{employee.rol} · {employee.empresa}</p>
           </div>
-          {linkedUser && (
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            {linkedUser && (
+              <span
+                className="font-data rounded-full px-3 py-1.5 text-xs font-semibold"
+                style={{ background: `${STATUS_COLOR[status]}18`, color: STATUS_COLOR[status] }}
+              >
+                Lead {status} · score {score}
+              </span>
+            )}
             <span
               className="font-data rounded-full px-3 py-1.5 text-xs font-semibold"
-              style={{ background: `${STATUS_COLOR[status]}18`, color: STATUS_COLOR[status] }}
+              style={
+                tieneFormWoop
+                  ? { background: `${T}18`, color: T }
+                  : { background: "#EEF0F6", color: `${I}55` }
+              }
             >
-              Lead {status} · score {score}
+              {tieneFormWoop ? "📝 Llenó el formulario Woop" : "🔍 Prospecto"}
             </span>
-          )}
+          </div>
+        </div>
+
+        <div className="mb-5">
+          <RecomendacionSummaryCard cedula={employee.cedula} topProduct={topProduct} topValue={topValue} />
         </div>
 
         <div className="grid gap-5 md:grid-cols-[280px_1fr]">
@@ -141,6 +182,13 @@ export default async function ColaboradorPerfilPage({ params }: { params: { cedu
                 <span className="font-data" style={{ color: `${I}65` }}>Cuota máxima recomendada</span>
                 <span className="font-display font-bold" style={{ color: T }}>{fmt(cuotaMaxima)}</span>
               </div>
+              <div className="mt-4 h-3 w-full overflow-hidden rounded-full" style={{ background: "#E4E7EF" }}>
+                <div className="h-3 rounded-full" style={{ width: "30%", background: `linear-gradient(90deg, ${T}, ${Y})` }} />
+              </div>
+              <div className="mt-1.5 flex justify-between text-[10px]" style={{ color: `${I}45` }}>
+                <span className="font-data">30% cuota</span>
+                <span className="font-data">70% resto del ingreso</span>
+              </div>
               <p className="font-data mt-3 text-[11px]" style={{ color: `${I}35` }}>
                 Estimación simple (30% del ingreso), no un cálculo de capacidad real de endeudamiento.
               </p>
@@ -149,6 +197,18 @@ export default async function ColaboradorPerfilPage({ params }: { params: { cedu
 
           {/* Columna derecha */}
           <div className="flex flex-col gap-5">
+            {tieneFormWoop && linkedUser && (
+              <WoopFormPanel
+                userId={linkedUser.id}
+                formData={woopFormData}
+                solicitoContacto={Boolean(eventoContacto)}
+                fechaSolicitud={eventoContacto?.occurredAt ?? null}
+                contactadoPorAsesor={linkedUser.contactadoPorAsesor}
+                contactadoAt={linkedUser.contactadoAt}
+                empleadoCorreo={employee.correo}
+              />
+            )}
+
             <section className="rounded-3xl bg-white p-6" style={{ boxShadow: "0 4px 20px rgba(22,41,77,0.06)" }}>
               <h2 className="font-display text-lg font-bold" style={{ color: I }}>
                 Actividad en colsubsidio.com/creditos
@@ -195,26 +255,10 @@ export default async function ColaboradorPerfilPage({ params }: { params: { cedu
             </section>
 
             <EnrichmentPanel cedula={employee.cedula} enrichments={employee.enrichments} />
+            <KeywordSignalsPanel
+              enrichments={employee.enrichments.map((e) => ({ provider: e.provider, bio: e.bio }))}
+            />
           </div>
-        </div>
-
-        <div className="mt-5">
-          <ProductScorePanel
-            employee={{
-              edad: employee.edad,
-              antiguedad: employee.antiguedad,
-              salario: employee.salario,
-              hijos: employee.hijos,
-              genero: employee.genero,
-              categoriaAfiliacion: employee.categoriaAfiliacion,
-              tipoVinculacion: employee.tipoVinculacion,
-              libranza: employee.libranza,
-              tieneCreditoVivienda: employee.tieneCreditoVivienda,
-              tieneTarjetaColsubsidio: employee.tieneTarjetaColsubsidio,
-            }}
-            bios={employee.enrichments.map((e) => e.bio).filter((b): b is string => Boolean(b))}
-            score={employee.productScore}
-          />
         </div>
       </div>
     </main>

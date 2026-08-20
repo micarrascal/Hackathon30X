@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { I, T, Y } from "@/components/woop/tokens";
+import { I, T, Y, R } from "@/components/woop/tokens";
 
 interface EnrichmentRow {
   id: string;
@@ -98,6 +98,14 @@ export default function EnrichmentPanel({
                     {e.matchedFullName ?? e.matchedUsername}{" "}
                     <span className="font-normal" style={{ color: `${I}45` }}>@{e.matchedUsername}</span>
                   </p>
+                  {e.source === "simulado" && (
+                    <p
+                      className="font-data mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      style={{ background: `${R}18`, color: R }}
+                    >
+                      ⚠️ Simulado — EnsembleData sin suscripción activa
+                    </p>
+                  )}
                   {e.bio && (
                     <p className="font-data mt-1 text-xs" style={{ color: `${I}70` }}>{e.bio}</p>
                   )}
@@ -114,7 +122,12 @@ export default function EnrichmentPanel({
                     </div>
                   )}
                   <p className="font-data mt-2 text-[10px] uppercase tracking-wide" style={{ color: `${I}35` }}>
-                    Fuente: {e.source === "ensembledata+socialcrawl" ? "EnsembleData + SocialCrawl" : "EnsembleData"}
+                    Fuente:{" "}
+                    {e.source === "ensembledata+socialcrawl"
+                      ? "EnsembleData + SocialCrawl"
+                      : e.source === "simulado"
+                        ? "Datos simulados (fallback)"
+                        : "EnsembleData"}
                   </p>
                   {e.profileUrl && (
                     <a

@@ -13,7 +13,16 @@ function calcularProbabilidadesPython(perfil: Record<string, unknown>) {
     input: JSON.stringify(perfil),
     encoding: "utf8",
   });
-  const { tasaMujeresEA: _tasaMujeresEA, ...scores } = JSON.parse(salida);
+  // El motor Python devuelve varios campos informativos (tasaMujeresEA,
+  // keywordMatches, acierto) que no son columnas de CreditProductScore — se
+  // descartan aca para que el spread de abajo no le mande a Prisma un
+  // "Unknown argument".
+  const {
+    tasaMujeresEA: _tasaMujeresEA,
+    keywordMatches: _keywordMatches,
+    acierto: _acierto,
+    ...scores
+  } = JSON.parse(salida);
   return scores as {
     libreInversion: number;
     hipotecario: number;
@@ -77,6 +86,51 @@ const GENEROS = ["F", "M"];
 const CATEGORIAS_AFILIACION = ["A", "B", "C"];
 const VINCULACIONES = ["asalariado", "pensionado", "independiente"];
 
+// Motivos de ejemplo que un colaborador podria dejar al registrarse directo en
+// Woop (fuera de colsubsidio.com/creditos), por producto de interes declarado.
+const MOTIVOS_WOOP: Record<string, string[]> = {
+  libreInversion: ["un viaje familiar", "comprar un vehículo", "imprevistos personales", "una boda"],
+  hipotecario: ["comprar casa propia", "comprar apartamento", "cambiarme a una vivienda más grande"],
+  mejoraVivienda: ["remodelar la cocina", "ampliar la casa", "arreglar el techo"],
+  educativo: ["pagar la universidad de mi hija", "una maestría", "un curso de especialización"],
+  mujeres: ["montar mi negocio", "capital de trabajo para mi emprendimiento", "imprevistos del hogar"],
+  compraCartera: ["consolidar varias deudas", "unificar créditos en una sola cuota"],
+  mipymes: ["ampliar mi negocio", "comprar inventario", "maquinaria para mi taller"],
+  cupoRotativo: ["gastos del mes", "una compra grande a cuotas"],
+};
+
+// Producto que el colaborador "declara" que quiere en Woop — sesgado por su perfil
+// (no siempre coincide con lo que despues calcula el motor, a proposito: asi el
+// % de acierto varia de un colaborador a otro en vez de dar siempre 100%).
+function elegirProductoInteres(emp: {
+  genero: string;
+  tipoVinculacion: string;
+  tieneCreditoVivienda: boolean;
+  categoriaAfiliacion: string;
+  edad: number;
+}): string {
+  const candidatos: string[] = [];
+  if (emp.genero === "F") candidatos.push("mujeres", "mujeres");
+  if (emp.tipoVinculacion === "independiente") candidatos.push("mipymes", "mipymes");
+  if (emp.tieneCreditoVivienda) candidatos.push("mejoraVivienda", "mejoraVivienda");
+  if (["A", "B"].includes(emp.categoriaAfiliacion)) candidatos.push("hipotecario");
+  if (emp.edad <= 32) candidatos.push("educativo");
+  candidatos.push("libreInversion", "compraCartera", "cupoRotativo");
+  return pick(candidatos);
+}
+
+// Monto que el colaborador declara necesitar, calculado a partir de la formula
+// real de amortizacion (capacidad de pago al 30% del salario) pero con un factor
+// aleatorio: a veces pide justo lo que puede pagar, a veces bastante mas o menos.
+function elegirMontoSolicitado(salario: number, plazoMeses: number): number {
+  const cuotaMaxima = salario * 0.3;
+  const tasaMensual = 0.18 / 12;
+  const factor = Math.pow(1 + tasaMensual, plazoMeses);
+  const capacidad = (cuotaMaxima * (factor - 1)) / (tasaMensual * factor);
+  const factorPedido = pick([0.5, 0.75, 1.0, 1.3, 1.8]);
+  return Math.max(1_000_000, Math.round((capacidad * factorPedido) / 100_000) * 100_000);
+}
+
 function randomCedula(): string {
   return String(randInt(1_000_000_000, 1_099_999_999));
 }
@@ -96,15 +150,43 @@ function randomDateWithinDays(days: number): Date {
 function randomSimulationMetadata() {
   const monto = randInt(2, 100) * 1_000_000;
   const plazoMeses = pick([12, 24, 36, 48, 60]);
-  const tasaMensual = 0.18 / 12;
+  const tasaAnual = 0.18;
+  const tasaMensual = tasaAnual / 12;
   const factor = Math.pow(1 + tasaMensual, plazoMeses);
   const cuotaMensual = Math.round((monto * tasaMensual * factor) / (factor - 1));
   return {
     monto,
     plazoMeses,
+    tasaAnual,
     cuotaMensual,
     totalPagado: cuotaMensual * plazoMeses,
     totalIntereses: cuotaMensual * plazoMeses - monto,
+  };
+}
+
+// Ids reales usados por PURPOSES en app/creditos/simulador/page.tsx.
+const PROPOSITO_IDS = ["libre", "vivienda", "auto", "edu", "salud", "negocio"];
+
+function randomCedulaFormato(): string {
+  const n = randomCedula();
+  return `${n.slice(0, 1)}.${n.slice(1, 4)}.${n.slice(4, 7)}.${n.slice(7)}`;
+}
+
+function randomCelular(): string {
+  return `3${randInt(0, 9)}${randInt(0, 9)} ${randInt(100, 999)} ${randInt(1000, 9999)}`;
+}
+
+// Metadata "completa" que deja una persona real al terminar el simulador de Woop
+// (ver handleFinish/handleSolicitarContacto en app/creditos/simulador/page.tsx):
+// la simulacion numerica + los datos de contacto que escribio en el formulario.
+function randomFormMetadata(nombreCompleto: string) {
+  return {
+    ...randomSimulationMetadata(),
+    proposito: pick(PROPOSITO_IDS),
+    nombre: nombreCompleto,
+    cedula: randomCedulaFormato(),
+    empresa: pick(EMPRESAS_AFILIADAS),
+    celular: randomCelular(),
   };
 }
 
@@ -112,6 +194,7 @@ async function main() {
   console.log("Limpiando datos existentes...");
   await prisma.employeeEnrichment.deleteMany();
   await prisma.creditProductScore.deleteMany();
+  await prisma.woopRegistro.deleteMany();
   await prisma.employee.deleteMany();
   await prisma.event.deleteMany();
   await prisma.intentScore.deleteMany();
@@ -228,9 +311,15 @@ async function main() {
         if (abandonsForm && Math.random() < 0.5) {
           await addEvent("form_abandon", { pageUrl: "/creditos/simulador" });
         } else {
-          const metadata = randomSimulationMetadata();
+          const metadata = randomFormMetadata(`${firstName} ${lastName}`);
           await addEvent("simulator_use", { metadata });
           await addEvent("form_complete", { pageUrl: "/creditos/simulador", metadata });
+          // ~30% de quienes completan la simulacion piden ser contactados —
+          // es el evento que mas puntos suma (ver SCORING_RULES) y el que
+          // alimenta la seccion de "interesados en contacto" del portal.
+          if (Math.random() < 0.3) {
+            await addEvent("contact_request", { pageUrl: "/creditos/simulador", metadata });
+          }
         }
       }
 
@@ -327,6 +416,26 @@ async function main() {
     await prisma.creditProductScore.create({
       data: { employeeId: employee.id, ...scores },
     });
+
+    // ~40% de los colaboradores que NUNCA visitaron colsubsidio.com/creditos se
+    // registraron directo en la app Woop y dejaron ahi su necesidad (monto, plazo,
+    // producto de interes) — canal alterno al sitio publico, sirve como "necesidad
+    // declarada" para comparar despues contra la prediccion del motor.
+    if (!linkedUserId && Math.random() < 0.4) {
+      const plazoMeses = pick([12, 24, 36, 48, 60]);
+      const montoSolicitado = elegirMontoSolicitado(employee.salario, plazoMeses);
+      const productoInteres = elegirProductoInteres(employee);
+      await prisma.woopRegistro.create({
+        data: {
+          employeeId: employee.id,
+          montoSolicitado,
+          plazoMeses,
+          productoInteres,
+          motivo: pick(MOTIVOS_WOOP[productoInteres]),
+          registradoAt: randomDateWithinDays(20),
+        },
+      });
+    }
 
     if ((i + 1) % 10 === 0) {
       console.log(`  ${i + 1}/${NUM_EMPLOYEES} colaboradores creados`);

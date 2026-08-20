@@ -24,6 +24,11 @@ model User {
   consentGiven  Boolean   @default(false)
   consentDate   DateTime?
 
+  // Seguimiento manual del asesor sobre el lead (independiente del intent score
+  // automatico): que un asesor haya marcado que ya contacto a esta persona.
+  contactadoPorAsesor Boolean   @default(false)
+  contactadoAt        DateTime?
+
   sessions      Session[]
   events        Event[]
   intentScore   IntentScore?
@@ -115,10 +120,31 @@ model Employee {
   linkedUserId String?  @unique
   linkedUser   User?    @relation(fields: [linkedUserId], references: [id])
 
+  // Seguimiento de la oferta por correo que un asesor le mando desde el
+  // recomendador de producto (ver ProspectoActionsPanel / vista de oferta).
+  ofertaEnviadaAt      DateTime?
+  ofertaEnviadaProducto String?
+
   enrichments  EmployeeEnrichment[]
   productScore CreditProductScore?
+  woopRegistro WoopRegistro?
 
   @@index([cedula])
+}
+
+// Pre-simulacion que el colaborador dejo por su cuenta en la app Woop (sin pasar
+// por colsubsidio.com/creditos ni hablar con un asesor). Es la "necesidad declarada"
+// contra la que se compara la prediccion del motor de probabilidad (ver "acierto"
+// en api/probabilidad.py) cuando el asesor vuelve a correr la simulacion.
+model WoopRegistro {
+  employeeId      String   @id
+  montoSolicitado Int
+  plazoMeses      Int
+  productoInteres String // una de las 8 claves de producto (ver CreditProductScore)
+  motivo          String? // texto libre que dejo el colaborador ("remodelar la cocina", etc.)
+  registradoAt    DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id])
 }
 
 // Resultado (cacheado) de buscar el nombre del empleado en redes sociales via EnsembleData.

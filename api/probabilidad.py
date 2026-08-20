@@ -20,10 +20,12 @@ que extiende BaseHTTPRequestHandler). El frontend le pega por fetch a
 """
 
 import json
+import math
+import re
 from http.server import BaseHTTPRequestHandler
 
-# Salario Minimo Mensual Legal Vigente aproximado (COP) — solo para la demo.
-SMMLV = 1_650_000
+# Salario Minimo Mensual Legal Vigente (COP), 2026.
+SMMLV = 1_750_905
 
 PRODUCTS = [
     "libreInversion",
@@ -48,18 +50,38 @@ TASAS_MUJERES = {
 # que dice "mama, repostera, emprendedora" suma senal real a Linea Mujer y
 # MiPymes, mas alla de lo que ya dicen los campos duros del perfil (RRHH).
 KEYWORD_SIGNALS = {
-    "mujeres": ["mama", "madre", "mujer", "emprendedora", "cabeza de familia", "mompreneur"],
+    "mujeres": [
+        "mama", "madre", "mujer", "emprendedora", "cabeza de familia", "mompreneur",
+        "esposa", "hija", "abuela", "tia", "girlboss", "soymama",
+    ],
     "mipymes": [
         "emprendedora", "emprendedor", "emprendimiento", "negocio", "tienda", "marca",
         "ventas", "repostera", "reposteria", "manualidades", "boutique", "catalogo",
+        "pyme", "freelance", "independiente", "disenadora", "diseno", "artesanias",
+        "joyeria", "panaderia", "peluqueria", "salon de belleza", "maquillaje", "unas", "coach",
     ],
-    "educativo": ["estudiante", "universidad", "universitari", "curso", "maestria", "posgrado", "colegio"],
-    "hipotecario": ["casa propia", "hogar", "remodelacion", "vivienda", "apartamento"],
-    "mejoraVivienda": ["remodelacion", "decoracion", "diy hogar"],
-    "libreInversion": ["viajes", "viajera", "viajero", "fitness", "gym", "entrenamiento", "moda"],
+    "educativo": [
+        "estudiante", "universidad", "universitari", "curso", "maestria", "posgrado",
+        "colegio", "profesora", "profesor", "docente", "tesis", "semestre", "beca",
+    ],
+    "hipotecario": [
+        "casa propia", "hogar", "remodelacion", "vivienda", "apartamento",
+        "finca raiz", "nueva casa", "mi casa", "propietaria", "propietario",
+    ],
+    "mejoraVivienda": ["remodelacion", "decoracion", "diy hogar", "renovacion", "interiorismo", "jardin"],
+    "libreInversion": [
+        "viajes", "viajera", "viajero", "fitness", "gym", "entrenamiento", "moda",
+        "aventura", "explorar", "turismo", "running", "runner", "crossfit", "yoga", "wellness",
+    ],
+    "compraCartera": ["deudas", "consolidar", "cuotas atrasadas", "presupuesto", "ahorro", "finanzas personales"],
+    "cupoRotativo": ["compras", "shopping", "tarjeta", "ofertas", "promo", "descuentos"],
 }
 
 BONUS_POR_KEYWORD = 12
+
+# Tasa efectiva anual de referencia, solo para estimar cuanto podria financiar
+# realmente un colaborador (no es la tasa real de ninguna linea especifica).
+TASA_ANUAL_REFERENCIA = 0.18
 
 
 def _clamp(value, lo=0, hi=100):
@@ -72,16 +94,70 @@ def _normalizar(texto: str) -> str:
 
 def detectar_keywords(bios: list) -> dict:
     """Escanea las bios reales de redes sociales y devuelve, por producto,
-    que palabras clave matchearon (lista vacia si ninguna)."""
+    que palabras clave matchearon (lista vacia si ninguna). Usa limite de
+    palabra al inicio (\\b) para evitar falsos positivos como "moda" adentro
+    de "incomoda", pero sin \\b al final para permitir stems como
+    "universitari" -> matchea "universitario"/"universitaria"."""
     texto = _normalizar(" ".join(b for b in bios if b))
     if not texto:
         return {}
     encontrados = {}
     for producto, palabras in KEYWORD_SIGNALS.items():
-        matches = [p for p in palabras if p in texto]
+        matches = [p for p in palabras if re.search(r"\b" + re.escape(p), texto)]
         if matches:
             encontrados[producto] = matches
     return encontrados
+
+
+def monto_maximo_financiable(salario: int, plazo_meses: int, tasa_anual: float = TASA_ANUAL_REFERENCIA) -> float:
+    """Monto maximo que la cuota recomendada (30% del salario) alcanza a pagar en
+    `plazo_meses`, usando la formula estandar de valor presente de una anualidad
+    (amortizacion frances) — la inversa exacta del calculo de cuota mensual que usa
+    scripts/seed.ts para generar simulaciones de ejemplo."""
+    if plazo_meses <= 0 or salario <= 0:
+        return 0.0
+    cuota_maxima = salario * 0.3
+    tasa_mensual = tasa_anual / 12
+    factor = (1 + tasa_mensual) ** plazo_meses
+    return cuota_maxima * (factor - 1) / (tasa_mensual * factor)
+
+
+def calcular_acierto(scores: dict, monto_solicitado, plazo_meses, producto_interes, salario):
+    """Compara la prediccion del motor (vector de 8 scores 0-100) contra la
+    necesidad que el colaborador declaro por su cuenta en Woop (producto, monto,
+    plazo), combinando dos senales:
+
+    1. Similitud coseno entre el vector de scores y el vector "one-hot" del
+       producto declarado — la misma tecnica que usan los sistemas de
+       recomendacion para medir que tan bien un vector de preferencias
+       predichas apunta a un item puntual (1.0 si ese producto domina el
+       vector predicho, se acerca a 0 si el motor lo veia como improbable).
+    2. Ajuste de monto: que tan cerca esta lo que el colaborador pidio del
+       monto maximo financiable con su salario a ese plazo (formula real de
+       amortizacion, ver `monto_maximo_financiable`).
+
+    Se pondera 60% similitud de producto / 40% ajuste de monto. Devuelve None
+    si no hay suficiente informacion declarada para comparar (colaborador sin
+    registro en Woop).
+    """
+    if not producto_interes or producto_interes not in scores or not monto_solicitado or not plazo_meses:
+        return None
+
+    vector = [scores.get(p, 0) for p in PRODUCTS]
+    norma = math.sqrt(sum(v * v for v in vector))
+    similitud_producto = (scores[producto_interes] / norma) if norma > 0 else 0.0
+
+    monto_max = monto_maximo_financiable(salario, plazo_meses)
+    ajuste_monto = 1 - min(1.0, abs(monto_solicitado - monto_max) / max(monto_solicitado, monto_max, 1))
+
+    porcentaje = _clamp(round(100 * (0.6 * similitud_producto + 0.4 * ajuste_monto)))
+
+    return {
+        "porcentajeAcierto": porcentaje,
+        "similitudProducto": round(similitud_producto * 100),
+        "ajusteMonto": round(ajuste_monto * 100),
+        "montoMaximoFinanciable": round(monto_max),
+    }
 
 
 def calcular_probabilidades(perfil: dict) -> dict:
@@ -204,6 +280,18 @@ def calcular_probabilidades(perfil: dict) -> dict:
         modalidad = "libranza" if libranza else "no_libranza"
         tabla = TASAS_MUJERES[modalidad]
         result["tasaMujeresEA"] = tabla.get(categoria, tabla["B"])
+
+    # Si el colaborador dejo una pre-simulacion declarada en Woop (monto, plazo,
+    # producto de interes), se compara contra lo que predijo el motor.
+    acierto = calcular_acierto(
+        scores,
+        perfil.get("montoSolicitado"),
+        perfil.get("plazoMeses"),
+        perfil.get("productoInteres"),
+        salario,
+    )
+    if acierto:
+        result["acierto"] = acierto
 
     return result
 
