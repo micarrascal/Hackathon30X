@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buscarEnRedes } from "@/lib/ensembledata";
 import { obtenerPerfilInstagram, obtenerPerfilTiktok } from "@/lib/socialcrawl";
-import { generarPerfilSintetico } from "@/lib/syntheticEnrichment";
 
 // Encadena llamadas a EnsembleData + SocialCrawl; se extiende el timeout default
 // de la funcion serverless en Vercel para dar margen a las APIs externas.
@@ -27,27 +26,6 @@ export async function POST(req: NextRequest) {
   // para ese mismo handle (SocialCrawl no busca por nombre, solo por handle conocido).
   const combined = await Promise.all(
     ensembleResults.map(async (r) => {
-      // EnsembleData no respondio (ej. suscripcion vencida, rate limit, timeout) —
-      // se usa un perfil simulado para que la demo no se quede sin datos. Nunca se
-      // usa para un "no encontrado" genuino (matchedUsername null sin error), ese
-      // caso se deja tal cual mas abajo.
-      if (r.error) {
-        const sintetico = generarPerfilSintetico(employee.nombre, r.provider, employee.genero as "F" | "M" | "X");
-        return {
-          provider: r.provider,
-          query: r.query,
-          matchedUsername: sintetico.username,
-          matchedFullName: sintetico.displayName,
-          bio: sintetico.bio,
-          followers: sintetico.followers,
-          profileUrl: sintetico.profileUrl,
-          verified: sintetico.verified,
-          engagementRate: sintetico.engagementRate,
-          raw: { simulado: true, motivoFallback: r.error },
-          source: "simulado" as const,
-        };
-      }
-
       if (!r.matchedUsername) {
         return { ...r, source: "ensembledata" as const, verified: null, engagementRate: null };
       }
