@@ -22,6 +22,29 @@ export interface LogEventInput {
   metadata?: Record<string, unknown>;
 }
 
+// Si el formulario del simulador (o el chatbot) trae una cedula que coincide
+// con un colaborador afiliado ya existente, vincula ese visitante anonimo al
+// colaborador — asi la persona que lo llena en vivo en la demo aparece con
+// "Lleno el formulario Woop" en su propio perfil de /colaboradores, en vez de
+// quedar como un lead anonimo sin relacion con sus datos de afiliada.
+async function linkEmployeeIfMatches(userId: string, metadata?: Record<string, unknown>) {
+  const cedulaRaw = metadata?.cedula;
+  if (typeof cedulaRaw !== "string") return;
+  const cedula = cedulaRaw.replace(/\D/g, "");
+  if (!cedula) return;
+
+  const employee = await prisma.employee.findUnique({ where: { cedula } });
+  if (!employee || employee.linkedUserId) return; // no existe o ya esta vinculado a otro visitante
+
+  const usuarioYaVinculado = await prisma.employee.findUnique({ where: { linkedUserId: userId } });
+  if (usuarioYaVinculado) return; // este visitante ya quedo vinculado a otro colaborador
+
+  await prisma.employee.update({
+    where: { id: employee.id },
+    data: { linkedUserId: userId },
+  });
+}
+
 export async function logEvent(input: LogEventInput) {
   const event = await prisma.event.create({
     data: {
@@ -39,6 +62,12 @@ export async function logEvent(input: LogEventInput) {
     where: { id: input.userId },
     data: { lastSeenAt: new Date() },
   });
+
+  try {
+    await linkEmployeeIfMatches(input.userId, input.metadata);
+  } catch {
+    // no bloquear el tracking del sitio publico si la vinculacion falla
+  }
 
   await recalculateScoreForUser(input.userId);
 

@@ -347,6 +347,48 @@ async function main() {
     }
   }
 
+  console.log("Generando colaborador ancla (para probar el simulador en vivo)...");
+  // Cedula/nombre/empresa/ingreso identicos a los valores por defecto del
+  // formulario del simulador (app/creditos/simulador/page.tsx). Si alguien
+  // corre la demo del simulador sin tocar esos campos, lib/track-server.ts la
+  // vincula automaticamente a esta colaboradora ya afiliada — asi el flujo
+  // "lleno el formulario Woop" funciona en vivo contra un perfil real, no uno
+  // generado al azar que nunca va a coincidir con ninguna cedula ingresada.
+  const empleadoAncla = await prisma.employee.create({
+    data: {
+      cedula: "1234567890",
+      nombre: "María Alejandra González",
+      empresa: "Tecnología S.A.S.",
+      antiguedad: 4,
+      rol: "Analista",
+      salario: 3_800_000,
+      correo: "maria.gonzalez@tecnologiasas.com",
+      edad: 29,
+      hijos: 1,
+      genero: "F",
+      categoriaAfiliacion: "B",
+      tipoVinculacion: "asalariado",
+      libranza: false,
+      tieneCreditoVivienda: false,
+      tieneTarjetaColsubsidio: true,
+    },
+  });
+  const scoresAncla = calcularProbabilidadesPython({
+    edad: empleadoAncla.edad,
+    antiguedad: empleadoAncla.antiguedad,
+    salario: empleadoAncla.salario,
+    hijos: empleadoAncla.hijos,
+    genero: empleadoAncla.genero,
+    categoriaAfiliacion: empleadoAncla.categoriaAfiliacion,
+    tipoVinculacion: empleadoAncla.tipoVinculacion,
+    libranza: empleadoAncla.libranza,
+    tieneCreditoVivienda: empleadoAncla.tieneCreditoVivienda,
+    tieneTarjetaColsubsidio: empleadoAncla.tieneTarjetaColsubsidio,
+  });
+  await prisma.creditProductScore.create({
+    data: { employeeId: empleadoAncla.id, ...scoresAncla },
+  });
+
   console.log("Generando colaboradores sintéticos...");
   const NUM_EMPLOYEES = 50;
   const usadosComoLink = new Set<string>();
