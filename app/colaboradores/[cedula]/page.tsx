@@ -138,9 +138,11 @@ export default async function ColaboradorPerfilPage({ params }: { params: { cedu
           </div>
         </div>
 
-        <div className="mb-5">
-          <RecomendacionSummaryCard cedula={employee.cedula} topProduct={topProduct} topValue={topValue} />
-        </div>
+        {!tieneFormWoop && (
+          <div className="mb-5">
+            <RecomendacionSummaryCard cedula={employee.cedula} topProduct={topProduct} topValue={topValue} />
+          </div>
+        )}
 
         <div className="grid gap-5 md:grid-cols-[280px_1fr]">
           {/* Columna izquierda */}
