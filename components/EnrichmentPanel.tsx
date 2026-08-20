@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { I, T, Y, R } from "@/components/woop/tokens";
+import { I, T, R } from "@/components/woop/tokens";
 
 interface EnrichmentRow {
   id: string;
@@ -68,12 +68,6 @@ export default function EnrichmentPanel({
           {loading ? "Buscando..." : "Buscar en redes"}
         </button>
       </div>
-
-      <p className="font-data mb-4 rounded-xl p-3 text-xs" style={{ background: `${Y}20`, color: "#7A5E00" }}>
-        ⚠️ Coincidencia por nombre en redes públicas (EnsembleData + SocialCrawl),{" "}
-        <strong>no es una identidad verificada</strong>. Puede corresponder a otra persona con el
-        mismo nombre.
-      </p>
 
       {error && <p className="font-data mb-3 text-sm text-red-600">{error}</p>}
 
